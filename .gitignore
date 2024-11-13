@@ -38,3 +38,4 @@ Thumbs.db
 dist/
 build/
 *.egg-info/
+todo.txt

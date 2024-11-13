@@ -1,0 +1,24 @@
+:root {
+  --matrix-green: #00ff00;
+  --matrix-black: #000000;
+  --transition-speed: 300ms;
+  --font-family: 'Courier New', monospace;
+  --spacing-unit: 8px;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  background-color: var(--matrix-black);
+  font-family: var(--font-family);
+}
+
+.matrix-text {
+  color: var(--matrix-green);
+  font-family: var(--font-family);
+}
+
+@keyframes matrixRain {
+  0% { transform: translateY(-100%); }
+  100% { transform: translateY(100vh); }
+}

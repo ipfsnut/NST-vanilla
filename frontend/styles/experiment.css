@@ -1,0 +1,53 @@
+.experiment-container {
+  background-color: #000000;
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  position: relative;
+  overflow: hidden;
+}
+
+.digit-display {
+  text-align: center;
+  opacity: 1;
+  transition: opacity 300ms ease;
+}
+
+.digit-display.fade {
+  opacity: 0;
+}
+
+.digit {
+  font-family: 'Courier New', monospace;
+  font-size: 72px;
+  color: #00ff00;
+  margin-bottom: 20px;
+}
+
+.instruction {
+  font-family: 'Courier New', monospace;
+  font-size: 24px;
+  color: #00ff00;
+}
+
+.matrix-button {
+  background: transparent;
+  border: 1px solid #00ff00;
+  color: #00ff00;
+  padding: 10px 20px;
+  font-family: 'Courier New', monospace;
+  cursor: pointer;
+  transition: all 300ms ease;
+}
+
+.matrix-button:hover {
+  background: #00ff00;
+  color: #000000;
+}
+
+.results-view {
+  text-align: center;
+  color: #00ff00;
+}
