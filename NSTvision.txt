@@ -1,0 +1,160 @@
+# NST (Number Switching Task) Technical Requirements
+
+## Core Components
+
+1. Trial Generation & Management
+   - Markov chain sequence generation with configurable effort levels (1-7)
+   - Each effort level maps to specific switch parameters (min/max switches)
+   - Trial progression with inter-trial delay of 1000ms
+   - Total trials: 14, distributed across effort levels
+
+2. Response System
+   - Keyboard input capture (f=odd, j=even)
+   - Response timing measurement
+   - Accuracy validation
+   - Response data structure:
+     → Trial number
+     → Digit presented
+     → Response time
+     → Accuracy
+     → Current effort level
+     → Sequence metadata
+
+3. Image Capture System
+   - Camera initialization at experiment start
+   - Capture triggers:
+     → Every nth trial (configurable)
+     → Precise timing relative to trial events
+   - Image data handling:
+     → Base64 encoding
+     → Bundling with trial data
+     → Storage optimization
+
+4. State Machine
+   STATES:
+   - INIT
+      Session creation (handled by SessionControl)
+      Trial sequence generation (via markovChain.js)
+      Configuration loading
+   - TRIAL_START
+      Current state tracked in stateManager.js
+      Triggers digit display
+      Conditionally triggers image capture
+      Starts response timing
+   - AWAIT_RESPONSE
+      Core experiment state where most logic happens
+      Keyboard input capture
+      Timing measurement
+      Parallel processes can run without state changes
+   - TRIAL_END
+      Response validation
+      Data storage
+      Progress updates
+      Effort level adjustments
+   - COMPLETE
+      Results compilation
+      Session cleanup
+      Final data export
+
+5. Data Management
+   - Session tracking
+   - Trial-by-trial response recording
+   - Image data association with trials
+   - Results compilation and export
+   - Error handling and recovery
+
+6. Frontend Requirements
+   - Clean digit display
+   - Camera feed preview (hidden/visible as needed)
+   - Progress indication
+   - Basic instructions
+   - Results summary view
+
+7. Backend Requirements
+   - Markov chain implementation
+   - Session management
+   - Response validation
+   - Data storage
+   - Results aggregation
+
+## Data Structures
+
+1. Trial Configuration
+   {
+     effortLevel: 1-7,
+     switchParameters: { min: x, max: y },
+     sequenceLength: 14,
+     captureFrequency: n
+   }
+
+2. Response Data
+   {
+     sessionId: string,
+     trialNumber: number,
+     digit: string,
+     response: 'odd' | 'even',
+     timestamp: number,
+     captureData?: base64string,
+     metadata: {
+       digitIndex: number,
+       sequence: string,
+       isCorrect: boolean,
+       effortLevel: number
+     }
+   }
+
+## API Endpoints
+
+/api/nst
+Session Management:
+- POST /start - Initialize experiment session
+- GET /state - Get experiment state
+- GET /trial-state - Get current trial state
+- GET /progress - Get experiment progress
+- GET /results - Get session results
+- PUT /session/pause - Pause experiment
+- PUT /session/resume - Resume experiment
+- PUT /session/abort - Terminate experiment early
+
+State Management:
+- GET /session/:id/status - Get detailed session status
+- POST /session/:id/transition - Request state transition
+
+Error Handling:
+- POST /session/:id/error - Report error condition
+- GET /session/:id/recovery - Get recovery instructions
+
+Trial Management:
+- POST /trials - Create new trial
+- GET /next-digit - Retrieve next trial digit
+- POST /response - Submit response with optional image
+
+Capture Control:
+- POST /capture - Submit captured image
+- GET /capture-config - Get capture configuration
+
+Configuration:
+- GET /config - Get NST configuration
+- PUT /config - Update NST configuration
+
+
+## Success Criteria
+
+1. Technical
+   - Accurate trial sequencing
+   - Precise response timing
+   - Reliable image capture
+   - Complete data collection
+   - Error rate <0.1%
+
+2. User Experience
+   - No perceived lag
+   - Clear digit presentation
+   - Immediate response feedback
+   - Smooth trial progression
+
+3. Data Quality
+   - Complete response records
+   - Clear image captures
+   - Accurate timing data
+   - Valid effort level progression

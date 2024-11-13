@@ -1,0 +1,32 @@
+NUMBER SWITCHING TASK - MATHEMATICAL PRINCIPLES
+
+1. SWITCH PROBABILITY CALCULATION
+Formula: switchProbability = (targetSwitches - switches) / (DIGITS_PER_TRIAL - i)
+
+This dynamic probability ensures optimal distribution of switches across the sequence by:
+- Tracking remaining required switches (targetSwitches - switches)
+- Adjusting based on remaining digits (DIGITS_PER_TRIAL - i)
+- Creating natural variation in switch timing
+
+2. EFFORT LEVEL MAPPING
+Progressive increase in cognitive load through controlled switch ranges:
+Level 1: 1-2 switches  (minimal cognitive load)
+Level 2: 3-4 switches
+Level 3: 5-6 switches
+Level 4: 7-8 switches  (moderate cognitive load)
+Level 5: 9-10 switches
+Level 6: 11-12 switches
+Level 7: 13-14 switches (maximum cognitive load)
+
+3. DIGIT GENERATION ALGORITHMS
+Odd digits:  random(0-4) * 2 + 1 = [1,3,5,7,9]
+Even digits: random(0-3) * 2 + 2 = [2,4,6,8]
+
+4. MARKOV CHAIN PROPERTIES
+- State transitions controlled by effort level parameters
+- Uniform distribution within odd/even categories
+- Probabilistic switch distribution across sequence length
+- Guaranteed completion of required switches
+- Maintained randomness within constraints
+
+This system creates precisely controlled cognitive load while preserving unpredictability in the actual sequence presentation.
