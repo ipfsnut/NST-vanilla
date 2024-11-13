@@ -39,3 +39,5 @@ dist/
 build/
 *.egg-info/
 todo.txt
+package-lock.json
+
