@@ -1,18 +1,17 @@
 :root {
   --matrix-green: #00ff00;
   --matrix-black: #000000;
-  --transition-speed: 300ms;
-  --font-family: 'Courier New', monospace;
-  --spacing-unit: 8px;
+  --transition: 300ms ease;
+  --font: 'Courier New', monospace;
 }
 
 body {
   margin: 0;
   padding: 0;
-  background-color: var(--matrix-black);
-  font-family: var(--font-family);
+  background: var(--matrix-black);
+  color: var(--matrix-green);
+  font-family: var(--font);
 }
-
 .matrix-text {
   color: var(--matrix-green);
   font-family: var(--font-family);

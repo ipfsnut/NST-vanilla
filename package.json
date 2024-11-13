@@ -1,0 +1,12 @@
+{
+  "name": "nst-vanilla",
+  "version": "1.0.0",
+  "scripts": {
+    "start": "concurrently \"npm run backend\" \"npm run frontend\"",
+    "backend": "cd backend && npm start",
+    "frontend": "cd frontend && npm start"
+  },
+  "dependencies": {
+    "concurrently": "^8.2.0"
+  }
+}
