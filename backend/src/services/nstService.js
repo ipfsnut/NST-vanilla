@@ -1,22 +1,18 @@
-const BaseExperiment = require('../../core/baseExperiment');
 const logger = require('../utils/logger');
-const { generateTrialNumbers } = require('../../utils/markovChain');
+const { generateTrialNumbers } = require('../utils/markovChain');
 
-
-
-class NSTService extends BaseExperiment {
-  constructor() {
-    super();
-    this.state = {
-      currentTrial: 0,
-      currentDigit: null,
-      responses: [],
-      captureSettings: {
-        enabled: true,
-        interval: 'perTrial'
-      }
-    };
-  }
+class NSTService {
+    constructor() {
+        this.state = {
+            currentTrial: 0,
+            currentDigit: null,
+            responses: [],
+            captureSettings: {
+                enabled: true,
+                interval: 'perTrial'
+            }
+        };
+    }
 
   async getNextDigit() {
     const trial = this.trials[this.state.currentTrial];
