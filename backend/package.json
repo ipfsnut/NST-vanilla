@@ -20,6 +20,7 @@
     "jszip": "^3.10.1",
     "mongoose": "^7.8.2",
     "morgan": "^1.10.0",
+    "uuid": "^11.0.3",
     "winston": "^3.17.0"
   },
   "devDependencies": {

@@ -1,6 +1,7 @@
 const path = require('path');
 
 module.exports = {
+  mode: 'development',
   entry: './src/index.js',
   output: {
     path: path.resolve(__dirname, 'dist'),
@@ -9,9 +10,11 @@ module.exports = {
   module: {
     rules: [
       {
-        test: /\.(js|jsx)$/,
+        test: /\.js$/,
         exclude: /node_modules/,
-        use: ['babel-loader']
+        use: {
+          loader: 'babel-loader'
+        }
       },
       {
         test: /\.css$/,
@@ -21,7 +24,17 @@ module.exports = {
   },
   devServer: {
     proxy: {
-      '/api': 'http://localhost:3000'
+      '/api': {
+        target: 'http://localhost:5069',
+        secure: false,
+        changeOrigin: true,
+        logLevel: 'debug'
+      }
+    },
+    port: 8080,
+    historyApiFallback: true,
+    static: {
+      directory: path.join(__dirname, 'public')
     }
   }
 };

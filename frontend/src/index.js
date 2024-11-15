@@ -1,10 +1,16 @@
 import React from 'react';
-import ReactDOM from 'react-dom';
+import { createRoot } from 'react-dom/client';
+import { Provider } from 'react-redux';
+import store from '../redux/store';
+import { ExperimentProvider } from '../context/ExperimentContext';
 import App from './App';
+import '../styles/theme.css';
 
-ReactDOM.render(
-  <React.StrictMode>
-    <App />
-  </React.StrictMode>,
-  document.getElementById('root')
+const root = createRoot(document.getElementById('root'));
+root.render(
+  <Provider store={store}>
+    <ExperimentProvider>
+      <App />
+    </ExperimentProvider>
+  </Provider>
 );

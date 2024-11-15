@@ -1,27 +1,32 @@
 import React, { useEffect, useState } from 'react';
-import { useSelector } from 'react-redux';
+import { useSelector, useDispatch } from 'react-redux';
+import { API_CONFIG } from '../config/api';
+import { setCurrentDigit } from '../redux/experimentSlice';
 
 const DigitDisplay = () => {
-  const [currentDigit, setCurrentDigit] = useState(null);
   const [isTransitioning, setIsTransitioning] = useState(false);
+  const { currentDigit, experimentId, digitIndex } = useSelector(state => state.experiment);
+  console.log('Redux store currentDigit:', currentDigit);
+  const dispatch = useDispatch();
 
   useEffect(() => {
+    if (!experimentId) return;
+
     const fetchNextDigit = async () => {
-      try {
-        const response = await fetch('/api/nst/next-digit');
-        const data = await response.json();
-        setIsTransitioning(true);
-        setTimeout(() => {
-          setCurrentDigit(data.digit);
-          setIsTransitioning(false);
-        }, 300);
-      } catch (error) {
-        console.error('Failed to fetch digit:', error);
-      }
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DIGIT}?experimentId=${experimentId}`);
+      const data = await response.json();
+      setIsTransitioning(true);
+      setTimeout(() => {
+        dispatch(setCurrentDigit({
+          digit: data.number,
+          trialNumber: data.metadata.trialNumber
+        }));
+        setIsTransitioning(false);
+      }, 300);
     };
 
     fetchNextDigit();
-  }, []);
+  }, [experimentId, digitIndex, dispatch]);
 
   return (
     <div className={`digit-display ${isTransitioning ? 'fade' : ''}`}>

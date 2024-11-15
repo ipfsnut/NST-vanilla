@@ -78,4 +78,7 @@ const generateTrialNumbers = (config) => {
   console.log(`Final trial count after shuffling: ${trialNumbers.length}`);
   return trialNumbers;
 };
-module.exports = { generateMarkovNumber }
+module.exports = { 
+  generateMarkovNumber,
+  generateTrialNumbers 
+};

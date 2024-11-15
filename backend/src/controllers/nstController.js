@@ -1,31 +1,29 @@
 const NSTService = require('../services/nstService');
-const { generateMarkovNumber } = require('../../utils/markovChain');
-const { MediaHandler } = require('../../services/mediaHandler');
-const { StateManager } = require('../../services/stateManager');
+const { generateMarkovNumber } = require('../utils/markovChain');
+const { MediaHandler } = require('../services/mediaHandler');
+const stateManager = require('../services/stateManager');
 const archiver = require('archiver');
 
 const nstService = new NSTService();
-const stateManager = new StateManager();
-const mediaHandler = new MediaHandler();
 
 // Session Management Controllers
+const config = require('../config');
 const startSession = async (req, res) => {
   try {
-    const sessionId = Date.now().toString();
-    const session = await nstService.startExperiment('nst', sessionId);
-    const { number } = generateMarkovNumber(1, session.config);
+    const experimentId = Date.now().toString();
+    const session = await nstService.startExperiment('nst', experimentId);
     const initialState = {
-      currentDigit: number[0],
-      trials: generateTrialSequence(session.config.numTrials),
-      sessionId: session.id,
-      sequence: number
+      currentDigit: session.trials[0].number[0],
+      trials: session.trials,
+      experimentId,
+      sequence: session.trials[0].number
     };
     res.json(initialState);
   } catch (error) {
+    console.error('Start session error:', error);
     res.status(500).json({ error: error.message });
   }
 };
-
 const getExperimentState = async (req, res) => {
   try {
     const state = await nstService.getExperimentState();
@@ -139,34 +137,32 @@ const createTrial = async (req, res) => {
 
 const getNextDigit = async (req, res) => {
   try {
-    const result = await nstService.getNextDigit();
+    const experimentId = req.query.experimentId;
+    if (!experimentId) {
+      return res.status(400).json({ error: 'experimentId required' });
+    }
+    
+    const result = await nstService.getNextDigit(experimentId);
     res.json({
-      digit: result.number[0],
+      digit: result.number,
       metadata: {
         effortLevel: result.effortLevel,
-        sequence: result.number,
-        ...result.metadata
+        sequence: result.number
       }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
-
 const submitResponse = async (req, res) => {
   try {
-    const result = await nstService.processResponse(req.body);
-    if (req.files?.capture) {
-      const captureResult = await mediaHandler.saveCapture(
-        req.body.sessionId,
-        req.body.trialNumber,
-        req.body.metadata.digitIndex,
-        req.files.capture
-      );
-      result.captureData = captureResult;
-    }
+    const result = await nstService.processResponse(
+      req.body.experimentId, 
+      req.body.response
+    );
     res.json(result);
   } catch (error) {
+    console.error('Response processing error:', error);
     res.status(500).json({ error: error.message });
   }
 };

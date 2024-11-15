@@ -3,34 +3,32 @@ import { createSlice } from '@reduxjs/toolkit';
 const experimentSlice = createSlice({
   name: 'experiment',
   initialState: {
-    currentState: 'INIT',
+    experimentId: null,
     currentTrial: 0,
     currentDigit: null,
-    responses: [],
-    trialTimings: [],
-    error: null
+    digitIndex: 0,
+    trialNumber: null,
+    isActive: false
   },
   reducers: {
-    setState: (state, action) => {
-      state.currentState = action.payload;
-    },
-    setCurrentTrial: (state, action) => {
-      state.currentTrial = action.payload;
+    initializeExperiment: (state, action) => {
+      state.experimentId = action.payload.experimentId;
+      state.isActive = true;
+      state.digitIndex = 0;
     },
     setCurrentDigit: (state, action) => {
-      state.currentDigit = action.payload;
+      state.currentDigit = action.payload.digit;
+      state.trialNumber = action.payload.trialNumber;
     },
-    addResponse: (state, action) => {
-      state.responses.push(action.payload);
+    advanceDigit: (state) => {
+      state.digitIndex += 1;
     },
-    addTrialTiming: (state, action) => {
-      state.trialTimings.push(action.payload);
-    },
-    setError: (state, action) => {
-      state.error = action.payload;
+    nextTrial: (state) => {
+      state.currentTrial += 1;
+      state.digitIndex = 0;
     }
   }
 });
 
-export const { setState, setCurrentTrial, setCurrentDigit, addResponse, addTrialTiming, setError } = experimentSlice.actions;
+export const { initializeExperiment, setCurrentDigit, advanceDigit, nextTrial } = experimentSlice.actions;
 export default experimentSlice.reducer;

@@ -1,10 +1,11 @@
+import { API_BASE_URL } from '../config/api';
+
 const apiMiddleware = store => next => async action => {
   if (!action.meta?.api) return next(action);
-
   const { endpoint, method = 'GET', body } = action.meta.api;
   
   try {
-    const response = await fetch(`/api/nst/${endpoint}`, {
+    const response = await fetch(`${API_BASE_URL}/${endpoint}`, {
       method,
       headers: {
         'Content-Type': 'application/json'

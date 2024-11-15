@@ -9,6 +9,7 @@ const nstController = require('../controllers/nstController');
 
 /**
  * @route POST /api/nst/start
+ * @frontend CORE ENDPOINT - Used in ExperimentView for session initialization
  * @desc Initialize new experiment session
  * @state INIT
  * @vision NSTvision.txt:Session Management:POST /start
@@ -24,6 +25,7 @@ router.post('/start', nstController.startSession);
  * @route GET /api/nst/state
  * @desc Get current experiment state
  * @state ANY
+ * @frontend CORE ENDPOINT - Used in ExperimentView for state tracking
  * @vision NSTvision.txt:Session Management:GET /state
  * @triggers State query via StateManager
  * @returns {Object} currentState, metadata
@@ -161,6 +163,7 @@ router.post('/trials', nstController.createTrial);
  * @route GET /api/nst/next-digit
  * @desc Get next digit in sequence
  * @state TRIAL_START
+ * @frontend CORE ENDPOINT - Used for digit sequence progression
  * @vision NSTvision.txt:Trial Management:GET /next-digit
  * @triggers Digit generation via MarkovChain
  * @returns {Object} digit, metadata
@@ -171,6 +174,7 @@ router.get('/next-digit', nstController.getNextDigit);
  * @route POST /api/nst/response
  * @desc Submit trial response
  * @state AWAIT_RESPONSE
+ * @frontend CORE ENDPOINT - Used for response submission
  * @vision NSTvision.txt:Trial Management:POST /response
  * @triggers 
  *  - Response validation

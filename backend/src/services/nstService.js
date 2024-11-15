@@ -1,42 +1,103 @@
+const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const { generateTrialNumbers } = require('../utils/markovChain');
-
+const config = require('../experimentConfig');
+const ExperimentSession = require('../models/ExperimentSession');
 class NSTService {
-    constructor() {
-        this.state = {
-            currentTrial: 0,
-            currentDigit: null,
-            responses: [],
-            captureSettings: {
-                enabled: true,
-                interval: 'perTrial'
-            }
-        };
-    }
-
-  async getNextDigit() {
-    const trial = this.trials[this.state.currentTrial];
-    if (!trial) throw new Error('No more trials available');
-    this.state.currentDigit = trial.number;
-    return trial.number;
+  constructor() {
+    this.experiments = new Map();
+    this.state = {
+      experimentId: null,
+      currentTrial: 0,
+      currentDigit: null,
+      responses: [],
+      captureSettings: {
+        enabled: true,
+        interval: 'perTrial'
+      }
+    };
   }
 
-  async processResponse(response) {
-    const trial = this.trials[this.state.currentTrial];
+  async startExperiment(experimentType, experimentId) {
+    console.log('Starting experiment:', experimentId);
+    this.state.experimentId = experimentId;
+    this.trials = await generateTrialNumbers(config);
+    
+    const experimentData = {
+      trials: this.trials,
+      state: { 
+        currentTrial: 0,
+        responses: [],
+        experimentId 
+      },
+      startTime: Date.now()
+    };
+    
+    this.experiments.set(experimentId, experimentData);
+    console.log('Experiment data stored:', this.experiments.get(experimentId));
+    
+    return experimentData;
+  }
+
+  async getNextDigit(experimentId) {
+    const experiment = this.experiments.get(experimentId);
+    if (!experiment) throw new Error('Experiment not found');
+    
+    const trial = experiment.trials[experiment.state.currentTrial];
+    const digitIndex = experiment.state.currentDigit || 0;
+    
+    // Update state to track current digit position
+    experiment.state.currentDigit = digitIndex + 1;
+    
+    return {
+      digit: trial.number[digitIndex],
+      isLastDigit: digitIndex === trial.number.length - 1,
+      trialNumber: experiment.state.currentTrial,
+      metadata: {
+        effortLevel: trial.effortLevel,
+        digitPosition: digitIndex
+      }
+    };
+  }
+
+  async getExperimentState(experimentId) {
+    // Try memory first, then fallback to database
+    let experiment = this.experiments.get(experimentId);
+    if (!experiment) {
+      experiment = await ExperimentSession.findOne({ experimentId });
+      if (!experiment) throw new Error('Experiment not found');
+      this.experiments.set(experimentId, experiment);
+    }
+    
+    return {
+      experimentId,
+      currentTrial: experiment.state.currentTrial,
+      totalTrials: experiment.trials.length,
+      status: this.getStatus(experimentId),
+      config: this.config
+    };
+  }
+
+  async processResponse(experimentId, response) {
+    const experiment = this.experiments.get(experimentId);
+    if (!experiment) throw new Error('Experiment not found');
+    
+    const trial = experiment.trials[experiment.state.currentTrial];
     const isCorrect = this.validateResponse(trial.number, response);
     
-    this.state.responses.push({
-      trial: this.state.currentTrial,
+    experiment.state.responses.push({
+      trial: experiment.state.currentTrial,
       digit: trial.number,
       response,
       isCorrect,
       timestamp: Date.now()
     });
 
-    this.state.currentTrial++;
+    // Advance to next trial
+    experiment.state.currentTrial++;
+  
     return { isCorrect, trialComplete: true };
   }
-
   async getProgress() {
     return {
       currentTrial: this.state.currentTrial,
@@ -105,4 +166,4 @@ class NSTService {
   }
 }
 
-module.exports = new NSTService();
+module.exports = NSTService;

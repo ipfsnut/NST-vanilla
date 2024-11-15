@@ -6,10 +6,23 @@ const morgan = require('morgan');
 const helmet = require('helmet');
 const session = require('express-session');
 const MongoStore = require('connect-mongo');
+const mongoose = require('mongoose');
 
-const nstService = require('./services/nstService');
+const { generateMarkovNumber } = require('./utils/markovChain');
+const NSTService = require('./services/nstService');
+const nstService = new NSTService();
 const MediaHandler = require('./services/mediaHandler');
-const routes = require('./routes');
+const routes = require('./routes/NSTRoutes');
+
+// MongoDB Connection
+mongoose.connect(process.env.MONGO_URI, {
+  useNewUrlParser: true,
+  useUnifiedTopology: true
+}).then(() => {
+  console.log('MongoDB connected successfully');
+}).catch(err => {
+  console.error('MongoDB connection error:', err);
+});
 
 // Initialize services
 const mongoStore = MongoStore.create({
@@ -18,12 +31,11 @@ const mongoStore = MongoStore.create({
 });
 
 const mediaHandler = new MediaHandler();
-
 const app = express();
 
 // Middleware
 app.use(cors({
-  origin: 'http://localhost:5173',
+  origin: 'http://localhost:8080',
   credentials: true
 }));
 
@@ -38,24 +50,30 @@ app.use(session({
   resave: true,
   saveUninitialized: true,
   cookie: {
-      secure: false,
-      sameSite: 'lax'
+    secure: false,
+    sameSite: 'lax'
   }
 }));
 
 app.use(morgan('dev'));
 app.use(express.json());
 
-// Routes with direct service injection
-app.use('/api', routes({ nstService, mediaHandler }));
+const nstRoutes = require('./routes/NSTRoutes');
+app.use('/api', nstRoutes);
 
-// Error handling middleware
+
+// Error handling middleware remains the same
 app.use((err, req, res, next) => {
   console.error('Error details:', err);
   res.status(err.status || 500).json({
-      message: err.message || 'Something went wrong!',
-      stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
+    message: err.message || 'Something went wrong!',
+    stack: process.env.NODE_ENV === 'development' ? err.stack : undefined
   });
+});
+
+const PORT = process.env.PORT || 5069;
+app.listen(PORT, () => {
+  console.log(`Server running on port ${PORT}`);
 });
 
 module.exports = app;

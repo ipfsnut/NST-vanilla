@@ -1,13 +1,19 @@
 import React, { useEffect, useRef } from 'react';
+import { useSelector } from 'react-redux';
+import { API_CONFIG } from '../config/api';
 
-const CameraCapture = ({ sessionId }) => {
+const CameraCapture = ({ experimentId }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
+  const currentTrial = useSelector(state => state.experiment.currentTrial);
 
   useEffect(() => {
     const initializeCamera = async () => {
       try {
-        const config = await fetch('/api/nst/capture-config').then(r => r.json());
+        const config = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATE}?experimentId=${experimentId}&type=capture`, {
+          credentials: 'include'
+        });
+
         if (!config.captureEnabled) return;
 
         const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -16,29 +22,31 @@ const CameraCapture = ({ sessionId }) => {
         console.error('Camera initialization failed:', error);
       }
     };
-
+    
     initializeCamera();
     return () => {
       if (videoRef.current?.srcObject) {
         videoRef.current.srcObject.getTracks().forEach(track => track.stop());
       }
     };
-  }, []);
+  }, [experimentId]);
 
   const captureImage = async () => {
     const canvas = canvasRef.current;
     const video = videoRef.current;
     canvas.getContext('2d').drawImage(video, 0, 0, canvas.width, canvas.height);
-    
     const imageData = canvas.toDataURL('image/jpeg');
+
     try {
-      await fetch('/api/nst/capture', {
+      await fetch(`${API_CONFIG.BASE_URL}/capture`, {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
         body: JSON.stringify({
-          sessionId,
-          imageData,
-          timestamp: Date.now()
+          experimentId,
+          captureData: imageData,
+          timestamp: Date.now(),
+          trialNumber: currentTrial
         })
       });
     } catch (error) {
