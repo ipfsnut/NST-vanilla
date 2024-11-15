@@ -141,13 +141,12 @@ const getNextDigit = async (req, res) => {
     if (!experimentId) {
       return res.status(400).json({ error: 'experimentId required' });
     }
-    
     const result = await nstService.getNextDigit(experimentId);
     res.json({
-      digit: result.number,
+      digit: result.digit,
       metadata: {
-        effortLevel: result.effortLevel,
-        sequence: result.number
+        effortLevel: result.metadata.effortLevel,
+        sequence: result.digit
       }
     });
   } catch (error) {

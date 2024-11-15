@@ -3,6 +3,7 @@ const logger = require('../utils/logger');
 const { generateTrialNumbers } = require('../utils/markovChain');
 const config = require('../experimentConfig');
 const ExperimentSession = require('../models/ExperimentSession');
+
 class NSTService {
   constructor() {
     this.experiments = new Map();
@@ -24,7 +25,10 @@ class NSTService {
     this.trials = await generateTrialNumbers(config);
     
     const experimentData = {
-      trials: this.trials,
+      trials: this.trials.map(trial => ({
+        ...trial,
+        digit: trial.number // Convert for consistency
+      })),
       state: { 
         currentTrial: 0,
         responses: [],
@@ -34,8 +38,6 @@ class NSTService {
     };
     
     this.experiments.set(experimentId, experimentData);
-    console.log('Experiment data stored:', this.experiments.get(experimentId));
-    
     return experimentData;
   }
 
@@ -44,22 +46,35 @@ class NSTService {
     if (!experiment) throw new Error('Experiment not found');
     
     const trial = experiment.trials[experiment.state.currentTrial];
-    const digitIndex = experiment.state.currentDigit || 0;
+    if (!trial) {
+      return {
+        digit: null,
+        isLastDigit: true,
+        trialNumber: experiment.state.currentTrial,
+        metadata: {
+          effortLevel: null,
+          digitPosition: null,
+          isComplete: true
+        }
+      };
+    }
     
-    // Update state to track current digit position
-    experiment.state.currentDigit = digitIndex + 1;
+    // Get current digit from the trial's digit string
+    const currentDigit = trial.digit.toString()[experiment.state.currentDigit || 0];
+    
+    // Increment digit position
+    experiment.state.currentDigit = (experiment.state.currentDigit || 0) + 1;
     
     return {
-      digit: trial.number[digitIndex],
-      isLastDigit: digitIndex === trial.number.length - 1,
+      digit: currentDigit,
+      isLastDigit: experiment.state.currentDigit >= trial.digit.toString().length,
       trialNumber: experiment.state.currentTrial,
       metadata: {
         effortLevel: trial.effortLevel,
-        digitPosition: digitIndex
+        digitPosition: experiment.state.currentDigit - 1
       }
     };
-  }
-
+  }  
   async getExperimentState(experimentId) {
     // Try memory first, then fallback to database
     let experiment = this.experiments.get(experimentId);
@@ -83,21 +98,23 @@ class NSTService {
     if (!experiment) throw new Error('Experiment not found');
     
     const trial = experiment.trials[experiment.state.currentTrial];
-    const isCorrect = this.validateResponse(trial.number, response);
+    const isCorrect = this.validateResponse(trial.digit, response);
     
     experiment.state.responses.push({
       trial: experiment.state.currentTrial,
-      digit: trial.number,
+      digit: trial.digit,
       response,
       isCorrect,
       timestamp: Date.now()
     });
 
-    // Advance to next trial
+    // Reset digit index and advance trial
+    experiment.state.currentDigit = 0;
     experiment.state.currentTrial++;
-  
+    
     return { isCorrect, trialComplete: true };
   }
+
   async getProgress() {
     return {
       currentTrial: this.state.currentTrial,

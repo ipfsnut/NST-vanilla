@@ -4,6 +4,8 @@ import { setCurrentDigit, advanceDigit, nextTrial } from '../redux/experimentSli
 import { setCapturing } from '../redux/captureSlice';
 import { API_CONFIG } from '../config/api';
 
+const INTER_TRIAL_DELAY = 1000; // Match backend config
+
 const ResponseHandler = ({ experimentId }) => {
   const dispatch = useDispatch();
   const { currentTrial, digitIndex } = useSelector(state => state.experiment);
@@ -17,8 +19,8 @@ const ResponseHandler = ({ experimentId }) => {
         },
         body: JSON.stringify({
           experimentId,
-          response,
-          digitIndex
+          response: response === 'f' ? 'odd' : 'even',
+          trialNumber: currentTrial
         })
       });
       return await result.json();
@@ -33,20 +35,18 @@ const ResponseHandler = ({ experimentId }) => {
       const response = event.key === 'f' ? 'odd' : 'even';
       const result = await submitResponse(response);
       
-      if (result.responseValid) {
+      if (result.isCorrect) {
         dispatch(setCapturing(true));
         dispatch(advanceDigit());
         
-        const nextDigit = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DIGIT}`);
-        const digitData = await nextDigit.json();
+        await new Promise(resolve => setTimeout(resolve, INTER_TRIAL_DELAY));
         
-        if (digitData.isLastDigit) {
-          dispatch(nextTrial());
-        }
+        const nextDigit = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DIGIT}?experimentId=${experimentId}`);
+        const digitData = await nextDigit.json();
         
         dispatch(setCurrentDigit({
           digit: digitData.digit,
-          trialNumber: digitData.trialNumber
+          trialNumber: digitData.metadata.trialNumber
         }));
       }
     }
@@ -55,9 +55,8 @@ const ResponseHandler = ({ experimentId }) => {
   useEffect(() => {
     window.addEventListener('keypress', handleKeyPress);
     return () => window.removeEventListener('keypress', handleKeyPress);
-  }, [experimentId, currentTrial, digitIndex]);
+  }, [experimentId, currentTrial, digitIndex, handleKeyPress]);
 
   return null;
 };
-
 export default ResponseHandler;

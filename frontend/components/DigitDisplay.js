@@ -6,7 +6,6 @@ import { setCurrentDigit } from '../redux/experimentSlice';
 const DigitDisplay = () => {
   const [isTransitioning, setIsTransitioning] = useState(false);
   const { currentDigit, experimentId, digitIndex } = useSelector(state => state.experiment);
-  console.log('Redux store currentDigit:', currentDigit);
   const dispatch = useDispatch();
 
   useEffect(() => {
@@ -18,7 +17,7 @@ const DigitDisplay = () => {
       setIsTransitioning(true);
       setTimeout(() => {
         dispatch(setCurrentDigit({
-          digit: data.number,
+          digit: data.digit,
           trialNumber: data.metadata.trialNumber
         }));
         setIsTransitioning(false);

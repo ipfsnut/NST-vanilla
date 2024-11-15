@@ -23,14 +23,11 @@ const ExperimentView = () => {
         return fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DIGIT}?experimentId=${data.experimentId}`);
       })
       .then(res => res.json())
-      .then(data => {
-        console.log('Complete next-digit response:', JSON.stringify(data, null, 2));
-        dispatch(setCurrentDigit({
-          digit: data.number,
-          trialNumber: data.metadata.trialNumber
-        }));
-        console.log('Dispatched digit:', data.number);
-      });    }
+      .then(data => dispatch(setCurrentDigit({
+        digit: data.digit,
+        trialNumber: data.metadata.trialNumber
+      })));
+    }
   }, [dispatch, isActive]);
 
   return (
