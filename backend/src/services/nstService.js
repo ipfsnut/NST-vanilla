@@ -96,10 +96,12 @@ class NSTService {
   async processResponse(experimentId, response) {
     const experiment = this.experiments.get(experimentId);
     if (!experiment) throw new Error('Experiment not found');
-    
+  
     const trial = experiment.trials[experiment.state.currentTrial];
+    if (!trial) return { isComplete: true };
+  
     const isCorrect = this.validateResponse(trial.digit, response);
-    
+  
     experiment.state.responses.push({
       trial: experiment.state.currentTrial,
       digit: trial.digit,
@@ -108,13 +110,21 @@ class NSTService {
       timestamp: Date.now()
     });
 
-    // Reset digit index and advance trial
-    experiment.state.currentDigit = 0;
-    experiment.state.currentTrial++;
-    
-    return { isCorrect, trialComplete: true };
-  }
+    // Check if we should advance to next trial
+    const isLastDigit = experiment.state.currentDigit >= trial.digit.toString().length;
+    if (isLastDigit) {
+      if (experiment.state.currentTrial < experiment.trials.length - 1) {
+        experiment.state.currentTrial++;
+        experiment.state.currentDigit = 0;
+      }
+    }
 
+    return { 
+      isCorrect, 
+      trialComplete: isLastDigit,
+      isLastTrial: experiment.state.currentTrial >= experiment.trials.length - 1
+    };
+  }
   async getProgress() {
     return {
       currentTrial: this.state.currentTrial,

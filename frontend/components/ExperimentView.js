@@ -1,41 +1,10 @@
-import React, { useEffect } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { API_CONFIG } from '../config/api';
-import { initializeExperiment, setCurrentDigit } from '../redux/experimentSlice';
+import React from 'react';
 import DigitDisplay from './DigitDisplay';
-import ResponseHandler from './ResponseHandler';
 
-const ExperimentView = () => {
-  const dispatch = useDispatch();
-  const { experimentId, currentDigit, isActive } = useSelector(state => state.experiment);
-
-  useEffect(() => {
-    if (!isActive) {
-      fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.START}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        }
-      })
-      .then(res => res.json())
-      .then(data => {
-        dispatch(initializeExperiment({ experimentId: data.experimentId }));
-        return fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DIGIT}?experimentId=${data.experimentId}`);
-      })
-      .then(res => res.json())
-      .then(data => dispatch(setCurrentDigit({
-        digit: data.digit,
-        trialNumber: data.metadata.trialNumber
-      })));
-    }
-  }, [dispatch, isActive]);
-
+const ExperimentView = ({ currentDigit }) => {
   return (
     <div className="experiment-container">
       <DigitDisplay digit={currentDigit} />
-      {experimentId && (
-        <ResponseHandler experimentId={experimentId} />
-      )}
     </div>
   );
 };
