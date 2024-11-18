@@ -20,7 +20,7 @@ const experimentConfig = {
     ODD: 'f',
     EVEN: 'j'
   },
-  INTER_TRIAL_DELAY: 1000,
+  INTER_TRIAL_DELAY: 100,
   numTrials: 14,
   trialsPerEffort: 2,
   isCustom: false

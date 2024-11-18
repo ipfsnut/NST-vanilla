@@ -16,15 +16,19 @@ const startSession = async (req, res) => {
       currentDigit: session.trials[0].number[0],
       trials: session.trials,
       experimentId,
-      sequence: session.trials[0].number
+      sequence: session.trials[0].number,
+      config: {
+        INTER_TRIAL_DELAY: config.experimentConfig.INTER_TRIAL_DELAY,
+        DIGITS_PER_TRIAL: 15,
+        KEYS: config.experimentConfig.KEYS
+      }
     };
     res.json(initialState);
   } catch (error) {
     console.error('Start session error:', error);
     res.status(500).json({ error: error.message });
   }
-};
-const getExperimentState = async (req, res) => {
+};const getExperimentState = async (req, res) => {
   try {
     const state = await nstService.getExperimentState();
     res.json({ state });

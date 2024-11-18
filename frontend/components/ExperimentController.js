@@ -1,9 +1,10 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import ExperimentView from './ExperimentView';
-import ResponseHandler from './ResponseHandler';
+import { initializeExperiment, setCurrentDigit, setPhase } from '../redux/experimentSlice';
 import { API_CONFIG } from '../config/api';
-import { initializeExperiment, setCurrentDigit } from '../redux/experimentSlice';
+import StartScreen from './StartScreen';
+import DigitDisplay from './DigitDisplay';
+import ResponseHandler from './ResponseHandler';
 import CameraCapture from './CameraCapture';
 import ResultsView from './ResultsView';
 
@@ -15,27 +16,39 @@ const ExperimentController = () => {
   const [trialResponses, setTrialResponses] = useState([]);
   const [isComplete, setIsComplete] = useState(false);
   const [isCaptureEnabled, setCaptureEnabled] = useState(false);
-  const { experimentId, currentTrial, currentDigit, isActive } = useSelector(state => state.experiment);
+  const [isTransitioning, setIsTransitioning] = useState(false);
+  const { experimentId, currentTrial, currentDigit, isActive, phase } = useSelector(state => state.experiment);
 
   useEffect(() => {
     const initializeSession = async () => {
-      if (!isActive) {
+      if (phase === 'running' && !experimentId) {
+        setIsTransitioning(true);
         const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.START}`, {
           method: 'POST',
           headers: { 'Content-Type': 'application/json' }
         });
         const data = await response.json();
+        console.log('Start response data:', data);  // Add this line here
+        
         dispatch(initializeExperiment({
           experimentId: data.experimentId,
           currentDigit: data.currentDigit,
           trials: data.trials,
-          sequence: data.sequence
+          sequence: data.sequence,
+          config: data.config
         }));
+
+        dispatch(setCurrentDigit({
+          digit: data.currentDigit,
+          trialNumber: 1
+        }));
+
+        setTimeout(() => setIsTransitioning(false), 500);
       }
     };
 
     initializeSession();
-  }, [dispatch, isActive]);
+  }, [phase, experimentId]);
 
   const handleResponse = async (response, digit) => {
     const responseData = {
@@ -52,11 +65,11 @@ const ExperimentController = () => {
       });
       
       const data = await result.json();
-      
       if (data.isCorrect) {
         if (data.trialComplete) {
           if (data.isLastTrial) {
             setIsComplete(true);
+            dispatch(setPhase('complete'));
           } else {
             await startNextTrial();
           }
@@ -79,6 +92,7 @@ const ExperimentController = () => {
   };
 
   const startNextTrial = async () => {
+    setIsTransitioning(true);
     const trialState = await fetch(
       `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRIAL_STATE}?experimentId=${experimentId}`
     );
@@ -91,15 +105,17 @@ const ExperimentController = () => {
       digit: data.digit,
       trialNumber: data.trialNumber
     }));
+    setTimeout(() => setIsTransitioning(false), 500);
   };
 
   return (
-    <div className="experiment-wrapper">
-      {!isComplete ? (
+    <div className={`experiment-wrapper ${isTransitioning ? 'fade' : ''}`}>
+      {phase === 'start' && <StartScreen />}
+      {phase === 'running' && !isComplete && (
         <>
-          <ExperimentView
-            currentDigit={currentDigit}
-            digitIndex={currentDigitIndex}
+          <DigitDisplay
+            digit={currentDigit}
+            isTransitioning={currentDigitIndex !== 0}
           />
           {experimentId && (
             <>
@@ -115,7 +131,8 @@ const ExperimentController = () => {
             </>
           )}
         </>
-      ) : (
+      )}
+      {phase === 'complete' && (
         <ResultsView
           experimentId={experimentId}
           onExportComplete={() => console.log('Export completed')}
