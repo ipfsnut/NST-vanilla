@@ -3,7 +3,7 @@
 A lightweight experimental platform for running the Number Switching Task (NST), built with React and Node.js.
 
 ## Purpose
-This application provides a clean interface for conducting number switching experiments, capturing participant responses and performance data. The matrix-styled UI presents digits sequentially and records user identification of odd/even numbers.
+This application provides a clean interface for conducting number switching experiments, capturing participant responses, performance data, and webcam images at specified intervals. The basic UI presents digits sequentially and records user identification of odd/even numbers.
 
 ## Prerequisites
 - Node.js (Download from nodejs.org)
@@ -34,6 +34,7 @@ This application provides a clean interface for conducting number switching expe
 ## Features
 - Clean matrix-styled interface
 - Real-time response capture
+- Webcam image capture at specified intervals
 - Performance metrics tracking
 - Data export capabilities
 - Session management
@@ -48,7 +49,7 @@ This application provides a clean interface for conducting number switching expe
 ## Development
 The application runs on:
 - Frontend: http://localhost:8080
-- Backend: http://localhost:5000
+- Backend: http://localhost:5069
 - MongoDB: localhost:27017
 
 ## Experiment Flow
@@ -64,6 +65,7 @@ The application runs on:
 - Trial sequence data
 - Performance metrics
 - Session metadata
+- Webcam captures at specified intervals
 
 ## License
 ISC

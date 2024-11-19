@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { setCurrentDigit } from '../redux/experimentSlice';
+import { setCurrentDigit, setPhase } from '../redux/experimentSlice';
 import { setCapturing } from '../redux/captureSlice';
 import { API_CONFIG } from '../config/api';
 
@@ -15,10 +15,6 @@ const ResponseHandler = ({ experimentId }) => {
 
   const submitResponse = async (response) => {
     try {
-      const isOdd = currentDigit % 2 !== 0;
-      const userResponse = response === 'f' ? 'odd' : 'even';
-      const isCorrect = (userResponse === 'odd' && isOdd) || (userResponse === 'even' && !isOdd);
-
       if (shouldCaptureImage(responseCount)) {
         dispatch(setCapturing(true));
         console.log(`Capturing image at response ${responseCount}`);
@@ -31,8 +27,7 @@ const ResponseHandler = ({ experimentId }) => {
         },
         body: JSON.stringify({
           experimentId,
-          response: userResponse,
-          isCorrect,
+          response: response === 'f' ? 'odd' : 'even',
           trialNumber: currentTrial,
           timestamp: Date.now(),
           digitIndex,
@@ -47,7 +42,13 @@ const ResponseHandler = ({ experimentId }) => {
 
       if (data.trialComplete) {
         console.log(`Trial ${currentTrial} complete, starting next trial`);
-        setResponseCount(0); // Reset counter for next trial
+        setResponseCount(0);
+
+        if (data.isLastTrial) {
+          dispatch(setPhase('complete'));
+          return;
+        }
+
         const trialState = await fetch(
           `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATE}?experimentId=${experimentId}`
         );
