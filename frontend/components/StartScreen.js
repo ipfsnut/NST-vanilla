@@ -1,12 +1,15 @@
 import React, { useEffect } from 'react';
 import { useDispatch } from 'react-redux';
-import { setPhase } from '../redux/experimentSlice';
+import { updateTrialState } from '../redux/experimentSlice';
 
 const StartScreen = () => {
   const dispatch = useDispatch();
 
   const handleStart = () => {
-    dispatch(setPhase('running'));
+    dispatch(updateTrialState({
+      phase: 'initializing',
+      transitionType: 'user-start'
+    }));
   };
 
   useEffect(() => {

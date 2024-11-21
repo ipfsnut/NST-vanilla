@@ -12,33 +12,44 @@ const experimentSlice = createSlice({
     phase: 'start'
   },
   reducers: {
-    initializeExperiment: (state, action) => {
-      state.experimentId = action.payload.experimentId;
-      state.currentDigit = action.payload.currentDigit;
-      state.isActive = true;
-      state.digitIndex = 0;
-      state.phase = 'running';
+    updateTrialState: (state, action) => {
+      console.log('Reducer received:', action.payload);
+
+      if (action.payload.experimentId) {
+        state.experimentId = action.payload.experimentId;
+      }
+      // Only update digit if explicitly provided
+      if (action.payload.digit !== undefined) {
+        state.currentDigit = action.payload.digit;
+    } else if (action.payload.currentDigit !== undefined) {
+        state.currentDigit = action.payload.currentDigit;
+    }
+    
+      if (action.payload.trialNumber) {
+        state.trialNumber = action.payload.trialNumber;
+      }
+      if (action.payload.digitIndex !== undefined) {
+        state.digitIndex = action.payload.digitIndex;
+      }
+      state.phase = action.payload.phase;
+      state.metadata = {
+        lastUpdate: Date.now(),
+        transitionType: action.payload.transitionType
+      };
     },
-    setCurrentDigit: (state, action) => {
-      state.currentDigit = action.payload.digit;
-      state.trialNumber = action.payload.trialNumber;
+    setResponsePending: (state, action) => {
+      state.isResponsePending = action.payload;
     },
-    advanceDigit: (state) => {
-      state.digitIndex += 1;
-    },
-    setTransitioning: (state, action) => {
-      state.isTransitioning = action.payload;
-    },
-    setPhase: (state, action) => {
-      state.phase = action.payload;
+    setCaptureAndWait: (state, action) => {
+      state.isCapturing = action.payload;
     }
   }
 });
 
 export const { 
-  initializeExperiment, 
-  setCurrentDigit, 
-  advanceDigit, 
-  setTransitioning,
-  setPhase 
-} = experimentSlice.actions;export default experimentSlice.reducer;
+  updateTrialState, 
+  setResponsePending, 
+  setCaptureAndWait 
+} = experimentSlice.actions;
+
+export default experimentSlice.reducer;

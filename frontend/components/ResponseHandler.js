@@ -1,87 +1,57 @@
-import React, { useEffect, useState } from 'react';
-import { useDispatch, useSelector } from 'react-redux';
-import { setCurrentDigit, setPhase } from '../redux/experimentSlice';
-import { setCapturing } from '../redux/captureSlice';
+import React from 'react';
+import { updateTrialState, setResponsePending, setCaptureAndWait } from '../redux/experimentSlice';
 import { API_CONFIG } from '../config/api';
 
-const ResponseHandler = ({ experimentId }) => {
-  const dispatch = useDispatch();
-  const { currentTrial, digitIndex, currentDigit } = useSelector(state => state.experiment);
-  const [responseCount, setResponseCount] = useState(0);
+class ResponseHandler extends React.Component {
+  constructor(props) {
+    super(props);
+    console.log('ResponseHandler constructor called with props:', props);
+    this.state = {
+      responseCount: 0
+    };
+    this.handleKeyPress = this.handleKeyPress.bind(this);
+  }
 
-  const shouldCaptureImage = (count) => {
-    return count === 0 || count % 3 === 0;
-  };
-
-  const submitResponse = async (response) => {
-    try {
-      if (shouldCaptureImage(responseCount)) {
-        dispatch(setCapturing(true));
-        console.log(`Capturing image at response ${responseCount}`);
-      }
-
-      const result = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json'
-        },
-        body: JSON.stringify({
-          experimentId,
-          response: response === 'f' ? 'odd' : 'even',
-          trialNumber: currentTrial,
-          timestamp: Date.now(),
-          digitIndex,
-          requiresCapture: shouldCaptureImage(responseCount)
-        })
-      });
-
-      const data = await result.json();
-      console.log('Response data:', data);
-      
-      setResponseCount(prev => prev + 1);
-
-      if (data.trialComplete) {
-        console.log(`Trial ${currentTrial} complete, starting next trial`);
-        setResponseCount(0);
-
-        if (data.isLastTrial) {
-          dispatch(setPhase('complete'));
-          return;
-        }
-
-        const trialState = await fetch(
-          `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATE}?experimentId=${experimentId}`
-        );
-        const nextTrialData = await trialState.json();
-        dispatch(setCurrentDigit({
-          digit: nextTrialData.digit,
-          trialNumber: nextTrialData.trialNumber
-        }));
-      } else {
-        const nextDigit = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.NEXT_DIGIT}?experimentId=${experimentId}`);
-        const digitData = await nextDigit.json();
-        dispatch(setCurrentDigit({
-          digit: digitData.digit,
-          trialNumber: digitData.metadata.trialNumber
-        }));
-      }
-    } catch (error) {
-      console.error('Response submission failed:', error);
+  compareStateVectors(clientVector, serverVector) {
+    if (!serverVector || !serverVector.trial) {
+      return true;
     }
-  };
+    return (
+      clientVector.trial === serverVector.trial &&
+      clientVector.digit === serverVector.digit &&
+      clientVector.phase === serverVector.phase &&
+      Math.abs(clientVector.vector[0] - serverVector.vector[0]) <= 1
+    );
+  }
 
-  const handleKeyPress = (event) => {
+  calculateDrift(clientVector, serverVector) {
+    return {
+      trialDrift: serverVector.trial - clientVector.trial,
+      digitDrift: serverVector.digit - clientVector.digit,
+      phaseDrift: serverVector.phase !== clientVector.phase,
+      vectorDrift: serverVector.vector.map((v, i) => v - clientVector.vector[i])
+    };
+  }
+
+  handleKeyPress = (event) => {
+    console.log('Keypress detected:', event.key);
     if (event.key === 'f' || event.key === 'j') {
-      submitResponse(event.key);
+      console.log('Valid key pressed, submitting response');
+      this.props.onResponse(event.key, this.props.currentDigit);
     }
-  };
+  }
 
-  useEffect(() => {
-    window.addEventListener('keypress', handleKeyPress);
-    return () => window.removeEventListener('keypress', handleKeyPress);
-  }, [experimentId, currentTrial, digitIndex, responseCount]);
+  componentDidMount() {
+    window.addEventListener('keypress', this.handleKeyPress);
+  }
 
-  return null;
-};
+  componentWillUnmount() {
+    window.removeEventListener('keypress', this.handleKeyPress);
+  }
+
+  render() {
+    return null;
+  }
+}
 
 export default ResponseHandler;

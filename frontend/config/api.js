@@ -5,7 +5,8 @@ export const API_CONFIG = {
     STATE: '/state',
     NEXT_DIGIT: '/next-digit',
     RESPONSE: '/response',
-    RESULTS: '/results'
+    RESULTS: '/results',
+    TRIAL_STATE: '/trial-state'  
   }
 };
 

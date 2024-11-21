@@ -39,12 +39,17 @@ const startSession = async (req, res) => {
 
 const getTrialState = async (req, res) => {
   try {
-    const trial = await nstService.getTrialState();
+    const { experimentId } = req.query;
+    console.log('Getting trial state for experiment:', experimentId);
+    const trial = await nstService.getTrialState(experimentId);
+    console.log('Trial state retrieved:', trial);
     res.json(trial);
   } catch (error) {
+    console.error('Trial state error:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const getProgress = async (req, res) => {
   try {
