@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 const logger = require('../utils/logger');
 const { generateTrialNumbers } = require('../utils/markovChain');
-const config = require('../experimentConfig');
+const config = require('../../config');
 
 const ExperimentResponseSchema = new mongoose.Schema({
   experimentId: String,
@@ -122,10 +122,19 @@ class NSTService {
     
     return this.getTrialState(experimentId);
   }
-
+  async getCaptureConfig(experimentId) {
+    const experiment = this.experiments.get(experimentId);
+    return {
+      captureEnabled: true,
+      frequency: 'perTrial',
+      quality: 'high',
+      experimentId,
+      currentTrial: experiment?.state.currentTrial || 0
+    };
+  }
+  
   // Processes response and advances state
   async processResponse(experimentId, response) {
-    logger.debug(`Processing response for experiment ${experimentId}: ${response}`);
     const experiment = this.experiments.get(experimentId);
     if (!experiment) {
       logger.error(`Experiment not found: ${experimentId}`);
@@ -179,5 +188,7 @@ class NSTService {
     return experiment.state.currentTrial >= experiment.trials.length ? 'complete' : 'active';
   }
 }
+
+
 
 module.exports = NSTService;

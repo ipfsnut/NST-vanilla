@@ -12,8 +12,13 @@ const startSession = async (req, res) => {
   try {
     const experimentId = Date.now().toString();
     const session = await nstService.startExperiment('nst', experimentId);
+    // Ensure we have valid trial data
+    if (!session.trials || !session.trials[0]) {
+      throw new Error('No valid trials generated');
+    }
+    // Generate initial state
     const initialState = {
-      currentDigit: session.trials[0].number[0],
+      currentDigit: session.trials[0].sequence[0], 
       trials: session.trials,
       experimentId,
       sequence: session.trials[0].number,

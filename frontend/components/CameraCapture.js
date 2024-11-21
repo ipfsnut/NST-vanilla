@@ -8,15 +8,17 @@ const CameraCapture = ({ experimentId, onCaptureReady }) => {
   useEffect(() => {
     const initializeCamera = async () => {
       try {
-        const config = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATE}?experimentId=${experimentId}&type=capture`, {
-          credentials: 'include'
-        });
+  const config = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.CAPTURE_CONFIG}?experimentId=${experimentId}`);
+  const configData = await config.json();
+  console.log('Camera config:', configData);
 
-        if (!config.captureEnabled) return;
-
-        const stream = await navigator.mediaDevices.getUserMedia({ video: true });
-        videoRef.current.srcObject = stream;
-        onCaptureReady(true);
+              if (configData.captureEnabled) {
+                console.log('Initializing camera...');
+                const stream = await navigator.mediaDevices.getUserMedia({ video: true });
+                videoRef.current.srcObject = stream;
+                console.log('Camera initialized');
+                onCaptureReady(true);
+              }
       } catch (error) {
         console.error('Camera initialization failed:', error);
         onCaptureReady(false);

@@ -233,4 +233,5 @@ router.get('/config', nstController.getNSTConfig);
  */
 router.put('/config', nstController.updateNSTConfig);
 
+
 module.exports = router;

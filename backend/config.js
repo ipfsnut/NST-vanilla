@@ -8,25 +8,31 @@
  */
 const experimentConfig = {
   EFFORT_LEVELS: {
-    1: { min: 1, max: 2 },   // Lowest cognitive load
+    1: { min: 1, max: 2 }, 
     2: { min: 3, max: 4 },
     3: { min: 5, max: 6 },
-    4: { min: 7, max: 8 },   // Medium cognitive load 
+    4: { min: 7, max: 8 },   
     5: { min: 9, max: 10 },
     6: { min: 11, max: 12 },
-    7: { min: 13, max: 14 }, // Highest cognitive load
+    7: { min: 13, max: 14 }, 
   },
   KEYS: {
     ODD: 'f',
     EVEN: 'j'
   },
-  INTER_TRIAL_DELAY: 100,
-  numTrials: 14,
-  trialsPerEffort: 2,
-  isCustom: false
+  INTER_TRIAL_DELAY: 0,
+  MODE: {
+    type: 'CUSTOM',  // or 'FULL'
+    CUSTOM: {
+      numTrials: 1,
+      randomEffortLevel: true
+    },
+    FULL: {
+      numTrials: 14,
+      trialsPerEffort: 2
+    }
+  }
 };
 
-// Derive effort levels from EFFORT_LEVELS object keys
 experimentConfig.effortLevels = Object.keys(experimentConfig.EFFORT_LEVELS);
-
 module.exports = experimentConfig;

@@ -6,7 +6,8 @@ export const API_CONFIG = {
     NEXT_DIGIT: '/next-digit',
     RESPONSE: '/response',
     RESULTS: '/results',
-    TRIAL_STATE: '/trial-state'  
+    TRIAL_STATE: '/trial-state',  
+    CAPTURE_CONFIG: '/capture-config'
   }
 };
 

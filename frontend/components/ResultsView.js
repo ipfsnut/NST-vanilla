@@ -22,21 +22,22 @@ const ResultsView = ({ experimentId, onExportComplete }) => {
 
   const handleExport = async () => {
     try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESULTS}?experimentId=${experimentId}&format=export`, {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESULTS}?experimentId=${experimentId}&format=zip`, {
         credentials: 'include'
       });
-      const data = await response.json();
-      const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nst-experiment-${experimentId}.json`;
+      a.download = `experiment-${experimentId}.zip`;
+      document.body.appendChild(a);
       a.click();
+      window.URL.revokeObjectURL(url);
       onExportComplete?.();
     } catch (error) {
       console.error('Export failed:', error);
     }
-  };
+  };  
 
   return (
     <div className="results-view">

@@ -1,7 +1,7 @@
 /**
- * Constants and core functions for generating number sequences with controlled 
+ * Constants and core functions for generating number sequences with controlled
  * cognitive load through odd/even switching patterns
- * 
+ *
  * Each trial generates a 15-digit number where switches between odd/even digits
  * are controlled by effort level parameters from the config
  */
@@ -15,7 +15,6 @@ const DIGITS_PER_TRIAL = 15;
  */
 const generateMarkovNumber = (effortLevel, config) => {
   const { min, max } = config.EFFORT_LEVELS[effortLevel];
-  
   // Calculate target switches for this sequence
   const targetSwitches = Math.floor(Math.random() * (max - min + 1)) + min;
 
@@ -39,8 +38,8 @@ const generateMarkovNumber = (effortLevel, config) => {
     number += digit;
   }
 
-  return { 
-    number, 
+  return {
+    number,
     effortLevel,
     metadata: {
       targetSwitches,
@@ -50,35 +49,54 @@ const generateMarkovNumber = (effortLevel, config) => {
 };
 
 /**
- * Generates full set of trial numbers for an experiment session
+ * Generates trial numbers based on experiment mode
  * @param {object} config - Full experiment configuration
  * @returns {array} Array of trial numbers with their effort levels
+ * 
+ * Handles two modes:
+ * 1. Custom Mode (isCustom: true):
+ *    - Generates specified number of trials (numTrials)
+ *    - Random effort levels for each trial
+ * 
+ * 2. Full Experiment Mode (isCustom: false):
+ *    - Generates balanced set of trials
+ *    - trialsPerEffort trials for each effort level
+ *    - Total trials = effortLevels.length * trialsPerEffort
  */
 const generateTrialNumbers = (config) => {
   console.log('Generating trial numbers with config:', JSON.stringify(config, null, 2));
-
+  
   const trialNumbers = [];
-  const effortLevels = config.effortLevels;
-  console.log(`Using effort levels: ${effortLevels.join(', ')}`);
-
-  for (let i = 0; i < config.numTrials; i++) {
-    const level = effortLevels[i % effortLevels.length];
-    console.log(`Generating trial ${i + 1} with effort level ${level}`);
-    trialNumbers.push(generateMarkovNumber(level, config));
+  
+  if (config.MODE.type === 'CUSTOM') {
+    // Generate custom number of trials with random effort levels
+    const numTrials = config.MODE.CUSTOM.numTrials;
+    for (let i = 0; i < numTrials; i++) {
+      const randomLevel = config.effortLevels[Math.floor(Math.random() * config.effortLevels.length)];
+      console.log(`Generating custom trial ${i + 1} with random effort level ${randomLevel}`);
+      trialNumbers.push(generateMarkovNumber(randomLevel, config));
+    }
+  } else {
+    // Generate full experiment with trialsPerEffort per level
+    config.effortLevels.forEach(level => {
+      for (let i = 0; i < config.MODE.FULL.trialsPerEffort; i++) {
+        console.log(`Generating full experiment trial for effort level ${level}`);
+        trialNumbers.push(generateMarkovNumber(level, config));
+      }
+    });
   }
 
   console.log(`Generated ${trialNumbers.length} trials before shuffling`);
-
+  
   // Fisher-Yates shuffle
   for (let i = trialNumbers.length - 1; i > 0; i--) {
     const j = Math.floor(Math.random() * (i + 1));
     [trialNumbers[i], trialNumbers[j]] = [trialNumbers[j], trialNumbers[i]];
   }
 
-  console.log(`Final trial count after shuffling: ${trialNumbers.length}`);
   return trialNumbers;
 };
-module.exports = { 
+module.exports = {
   generateMarkovNumber,
-  generateTrialNumbers 
+  generateTrialNumbers
 };
