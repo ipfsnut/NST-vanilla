@@ -3,6 +3,9 @@ const { generateMarkovNumber } = require('../utils/markovChain');
 const { MediaHandler } = require('../services/mediaHandler');
 const stateManager = require('../services/stateManager');
 const archiver = require('archiver');
+const { createAndDownloadZip } = require('../utils/zipCreator');
+const Experiment = require('../../models/Experiment');
+const Response = require('../../models/Response');
 
 const nstService = new NSTService();
 
@@ -60,15 +63,6 @@ const getProgress = async (req, res) => {
   try {
     const progress = await nstService.getProgress();
     res.json(progress);
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getResults = async (req, res) => {
-  try {
-    const results = await nstService.getSessionResults(req.params.sessionId);
-    res.json(results);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -235,6 +229,81 @@ const generateTrialSequence = (numTrials) => {
   }));
 };
 
+const getResults = async (req, res) => {
+  try {
+    const { experimentId, format } = req.query;
+    const experiment = await Experiment.findOne({ experimentId });
+    const responses = await Response.find({ sessionId: experimentId });
+
+    if (!experiment) {
+      return res.status(404).json({ error: 'Experiment not found' });
+    }
+
+    if (format === 'zip') {
+      const formattedData = experiment.trials.map((trial, index) => ({
+        trialNumber: index + 1,
+        effortLevel: trial.effortLevel,
+        sequence: trial.sequence,
+        responses: responses
+          .filter(r => r.trialNumber === index)
+          .map(r => ({
+            digit: r.digit,
+            response: r.response,
+            isCorrect: r.isCorrect,
+            timestamp: r.timestamp
+          }))
+      }));
+
+      const zipFileName = await createAndDownloadZip(formattedData);
+      return res.download(zipFileName);
+    }
+
+    res.json({
+      experiment,
+      responses,
+      metrics: {
+        totalTrials: experiment.trials.length,
+        accuracy: responses.filter(r => r.isCorrect).length / responses.length * 100
+      }
+    });
+  } catch (error) {
+    console.error('Results retrieval error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const exportResults = async (req, res) => {
+  try {
+    const { experimentId } = req.params;
+    const experimentData = await ExperimentResponse.findOne({ experimentId });
+    
+    if (!experimentData) {
+      return res.status(404).json({ error: 'Experiment not found' });
+    }
+
+    const formattedData = experimentData.trials.map((trial, index) => ({
+      trialNumber: index + 1,
+      effortLevel: trial.effortLevel,
+      sequence: trial.sequence.join(''),
+      responses: experimentData.responses
+        .filter(r => r.trial === index)
+        .map(r => ({
+          digit: r.digit,
+          response: r.response,
+          isCorrect: r.isCorrect,
+          timestamp: r.timestamp
+        }))
+    }));
+
+    const zipFileName = await createAndDownloadZip(formattedData);
+    res.download(zipFileName);
+  } catch (error) {
+    console.error('Export error:', error);
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
   startSession,
   getExperimentState,
@@ -254,5 +323,6 @@ module.exports = {
   submitCapture,
   getCaptureConfig,
   getNSTConfig,
-  updateNSTConfig
+  updateNSTConfig,
+  exportResults
 };

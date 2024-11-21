@@ -233,5 +233,8 @@ router.get('/config', nstController.getNSTConfig);
  */
 router.put('/config', nstController.updateNSTConfig);
 
+router.get('/export/:experimentId', nstController.exportResults);
+
+
 
 module.exports = router;

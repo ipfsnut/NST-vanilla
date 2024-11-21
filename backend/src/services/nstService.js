@@ -180,6 +180,23 @@ class NSTService {
     if (!experiment) return 'not_found';
     return experiment.state.currentTrial >= experiment.trials.length ? 'complete' : 'active';
   }
+  
+  async getResults(experimentId) {
+    const experimentData = await ExperimentResponse.findOne({ experimentId });
+    if (!experimentData) {
+      throw new Error('Experiment not found');
+    }
+  
+    return {
+      experiment: experimentData,
+      responses: experimentData.responses,
+      metrics: {
+        totalTrials: experimentData.trials.length,
+        accuracy: experimentData.responses.filter(r => r.isCorrect).length / experimentData.responses.length * 100
+      }
+    };
+  }
+  
 }
 
 
