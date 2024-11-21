@@ -136,43 +136,35 @@ class NSTService {
   // Processes response and advances state
   async processResponse(experimentId, response) {
     const experiment = this.experiments.get(experimentId);
-    if (!experiment) {
-      logger.error(`Experiment not found: ${experimentId}`);
-      throw new Error('Experiment not found');
-    }
+    if (!experiment) throw new Error('Experiment not found');
   
     const currentState = await this.getTrialState(experimentId);
+    const trial = experiment.trials[experiment.state.currentTrial];
+    
     const validationResult = this.validateResponse(currentState.currentDigit, response);
-  
-    const responseData = {
+    experiment.state.responses.push({
       trial: experiment.state.currentTrial,
       digit: currentState.currentDigit,
       response,
       isCorrect: validationResult.isCorrect,
       timestamp: Date.now()
-    };
-    
-      // Update both in-memory and database state
-    experiment.state.responses.push(responseData);
-    
-    await ExperimentResponse.findOneAndUpdate(
-      { experimentId },
-      { 
-        $push: { responses: responseData },
-        $set: { 
-          lastUpdated: Date.now(),
-          currentTrial: experiment.state.currentTrial
-        }
-      }
-    );
-
-    const nextState = await this.advanceTrialState(experimentId);
-    logger.debug(`Response processed, moving to next state`, nextState);
-    
+    });
+  
+    // Check if this is the last digit of the sequence
+    const isLastDigit = experiment.state.currentDigit >= trial.sequence.length - 1;
+    // Check if this is the last trial
+    const isLastTrial = experiment.state.currentTrial >= experiment.trials.length - 1;
+  
+    // Only advance state if not at the end
+    let nextState = currentState;
+    if (!isLastDigit || !isLastTrial) {
+      nextState = await this.advanceTrialState(experimentId);
+    }
+  
     return {
       isCorrect: validationResult.isCorrect,
-      trialComplete: nextState.trialState.isLastDigit,
-      isLastTrial: experiment.state.currentTrial >= experiment.trials.length - 1,
+      trialComplete: isLastDigit,
+      isLastTrial: isLastTrial && isLastDigit,
       nextState: {
         digit: nextState.currentDigit,
         trialNumber: experiment.state.currentTrial,
@@ -180,6 +172,7 @@ class NSTService {
       }
     };
   }
+  
 
   // Simple status check for experiment completion
   getStatus(experimentId) {
