@@ -2,9 +2,14 @@ const NSTService = require('../services/nstService');
 const { generateMarkovNumber } = require('../utils/markovChain');
 const { MediaHandler } = require('../services/mediaHandler');
 const stateManager = require('../services/stateManager');
-const archiver = require('archiver');
+const { createAndDownloadZip } = require('../utils/zipCreator');
+const ServiceCoordinator = require('../services/ServiceCoordinator');
+const config = require('../config');
 
 const nstService = new NSTService();
+const mediaHandler = new MediaHandler();
+const serviceCoordinator = new ServiceCoordinator(nstService, null, mediaHandler);
+
 
 // Session Management Controllers
 const config = require('../config');
@@ -230,6 +235,55 @@ const generateTrialSequence = (numTrials) => {
   }));
 };
 
+const exportSessionData = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const session = await nstService.getSessionResults(sessionId);
+    const zipFileName = await createAndDownloadZip(session);
+    res.json({
+      exportData: zipFileName,
+      metadata: {
+        timestamp: Date.now(),
+        format: 'zip',
+        sessionId
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getSessionCaptures = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const captures = await mediaHandler.getSessionCaptures(sessionId);
+    res.json({
+      captures,
+      metadata: {
+        sessionId,
+        timestamp: Date.now(),
+        count: captures.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const validateExportData = async (req, res) => {
+  try {
+    const validation = await serviceCoordinator.validateExportData(req.body);
+    res.json({
+      isValid: validation.isValid,
+      errors: validation.errors,
+      metadata: validation.metadata
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
   startSession,
   getExperimentState,
@@ -249,5 +303,8 @@ module.exports = {
   submitCapture,
   getCaptureConfig,
   getNSTConfig,
+  exportSessionData,
+  getSessionCaptures,
+  validateExportData,
   updateNSTConfig
 };

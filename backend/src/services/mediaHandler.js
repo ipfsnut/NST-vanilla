@@ -75,11 +75,34 @@ class MediaHandler {
       }
     }));
   }
-  
 
   async cleanupSession(sessionId) {
     const sessionPath = path.join(this.basePath, sessionId);
     await fs.rm(sessionPath, { recursive: true, force: true });
+  }
+
+  async batchExportCaptures(sessionId) {
+    const sessionPath = path.join(this.basePath, sessionId);
+    const captures = await this.getSessionCaptures(sessionId);
+    
+    return {
+      captures,
+      metadata: await this.getSessionMetadata(sessionId),
+      timestamp: Date.now()
+    };
+  }
+
+  async getSessionMetadata(sessionId) {
+    const sessionPath = path.join(this.basePath, sessionId);
+    const files = await fs.readdir(sessionPath);
+    
+    return {
+      sessionId,
+      captureCount: files.length,
+      createdAt: Date.now(),
+      storagePath: sessionPath,
+      format: 'jpg'
+    };
   }
 }
 

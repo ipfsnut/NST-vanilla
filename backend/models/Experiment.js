@@ -31,6 +31,12 @@ const ExperimentSchema = new mongoose.Schema({
     enum: ['pending', 'in-progress', 'completed'],
     default: 'pending',
   },
+  captureConfig: {
+    frequency: Number,
+    quality: String,
+    storage: String
+  },
+  exportFormat: String
 }, { timestamps: true });
 
 module.exports = mongoose.model('Experiment', ExperimentSchema);

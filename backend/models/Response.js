@@ -24,7 +24,12 @@ const ResponseSchema = new mongoose.Schema({
     accuracy: Number,
     averageResponseTime: Number,
     switchCosts: [Number]
-  }
+  },
+  captures: [{
+    timestamp: Number,
+    path: String,
+    metadata: Object
+  }]
 }, { timestamps: true });
 
 module.exports = mongoose.model('Response', ResponseSchema);

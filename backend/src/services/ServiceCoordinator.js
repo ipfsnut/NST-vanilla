@@ -119,5 +119,51 @@ class ServiceCoordinator {
       }
     };
   }
+  
+  async aggregateSessionData(sessionId) {
+    const sessionState = await this.platformService.getSessionState(sessionId);
+    const captures = await this.mediaHandler.batchExportCaptures(sessionId);
+    const experimentData = await this.nstService.getExperimentState();
+
+    return {
+      session: sessionState,
+      captures: captures,
+      experiment: experimentData,
+      metadata: {
+        timestamp: Date.now(),
+        exportVersion: '1.0'
+      }
+    };
+
+  }
+  
+  async prepareBatchExport(sessionId) {
+    const aggregatedData = await this.aggregateSessionData(sessionId);
+    const validation = await this.validateExportData(aggregatedData);
+
+    if (!validation.isValid) {
+      throw new Error('Export data validation failed');
+    }
+
+    return {
+      data: aggregatedData,
+      validation,
+      readyForExport: true,
+      timestamp: Date.now()
+    };
+  }
+  
+  async validateExportData(data) {
+    return {
+      isValid: true,
+      errors: [],
+      metadata: {
+        size: JSON.stringify(data).length,
+        format: 'json',
+        timestamp: Date.now()
+      }
+    };
+  }
+
 }
 module.exports = ServiceCoordinator;
