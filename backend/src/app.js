@@ -61,8 +61,6 @@ app.use(express.json());
 const nstRoutes = require('./routes/NSTRoutes');
 app.use('/api', nstRoutes);
 
-
-// Error handling middleware remains the same
 app.use((err, req, res, next) => {
   console.error('Error details:', err);
   res.status(err.status || 500).json({

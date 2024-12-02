@@ -1,9 +1,15 @@
 import React, { useEffect } from 'react';
-import { useDispatch } from 'react-redux';
+import { useDispatch, useSelector } from 'react-redux';
 import { updateTrialState } from '../redux/experimentSlice';
+import { checkCameraAvailability } from './CameraCapture';
 
 const StartScreen = () => {
   const dispatch = useDispatch();
+  const deviceStatus = useSelector(state => state.capture.deviceStatus);
+
+  useEffect(() => {
+    checkCameraAvailability(dispatch);
+  }, [dispatch]);
 
   const handleStart = () => {
     dispatch(updateTrialState({
@@ -13,7 +19,7 @@ const StartScreen = () => {
   };
 
   useEffect(() => {
-    const handleKeyPress = (event) => {
+    const handleKeyPress = () => {
       handleStart();
     };
 
@@ -26,6 +32,9 @@ const StartScreen = () => {
       <h1>Number Sequence Task</h1>
       <p>Press 'f' for odd numbers</p>
       <p>Press 'j' for even numbers</p>
+      {deviceStatus === 'ready' && (
+        <div className="camera-status">Camera Ready ✓</div>
+      )}
       <div className="start-instruction">
         Press any key to begin
       </div>

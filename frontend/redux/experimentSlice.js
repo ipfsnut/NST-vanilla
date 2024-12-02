@@ -9,7 +9,17 @@ const experimentSlice = createSlice({
     digitIndex: 0,
     responses: [],
     isActive: false,
-    phase: 'start'
+    phase: 'start',
+    captureConfig: {
+      enabled: false,
+      frequency: 3,
+      quality: 'high'
+    },
+    stateVector: {
+      lastUpdate: null,
+      transitionType: null,
+      captureSync: false
+    }
   },
   reducers: {
     updateTrialState: (state, action) => {
@@ -18,13 +28,11 @@ const experimentSlice = createSlice({
       if (action.payload.experimentId) {
         state.experimentId = action.payload.experimentId;
       }
-      // Only update digit if explicitly provided
       if (action.payload.digit !== undefined) {
         state.currentDigit = action.payload.digit;
-    } else if (action.payload.currentDigit !== undefined) {
+      } else if (action.payload.currentDigit !== undefined) {
         state.currentDigit = action.payload.currentDigit;
-    }
-    
+      }
       if (action.payload.trialNumber) {
         state.trialNumber = action.payload.trialNumber;
       }
@@ -32,9 +40,10 @@ const experimentSlice = createSlice({
         state.digitIndex = action.payload.digitIndex;
       }
       state.phase = action.payload.phase;
-      state.metadata = {
+      state.stateVector = {
         lastUpdate: Date.now(),
-        transitionType: action.payload.transitionType
+        transitionType: action.payload.transitionType,
+        captureSync: action.payload.captureSync || false
       };
     },
     setResponsePending: (state, action) => {
@@ -42,6 +51,18 @@ const experimentSlice = createSlice({
     },
     setCaptureAndWait: (state, action) => {
       state.isCapturing = action.payload;
+    },
+    updateCaptureConfig: (state, action) => {
+      state.captureConfig = {
+        ...state.captureConfig,
+        ...action.payload
+      };
+    },
+    addResponse: (state, action) => {
+      state.responses.push({
+        ...action.payload,
+        timestamp: Date.now()
+      });
     }
   }
 });
@@ -49,7 +70,9 @@ const experimentSlice = createSlice({
 export const { 
   updateTrialState, 
   setResponsePending, 
-  setCaptureAndWait 
+  setCaptureAndWait,
+  updateCaptureConfig,
+  addResponse
 } = experimentSlice.actions;
 
 export default experimentSlice.reducer;

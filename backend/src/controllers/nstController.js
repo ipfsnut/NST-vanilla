@@ -1,6 +1,6 @@
 const NSTService = require('../services/nstService');
 const { generateMarkovNumber } = require('../utils/markovChain');
-const { MediaHandler } = require('../services/mediaHandler');
+const MediaHandler = require('../services/mediaHandler');
 const stateManager = require('../services/stateManager');
 const { createAndDownloadZip } = require('../utils/zipCreator');
 const ServiceCoordinator = require('../services/ServiceCoordinator');
@@ -12,7 +12,6 @@ const serviceCoordinator = new ServiceCoordinator(nstService, null, mediaHandler
 
 
 // Session Management Controllers
-const config = require('../config');
 const startSession = async (req, res) => {
   try {
     const experimentId = Date.now().toString();
