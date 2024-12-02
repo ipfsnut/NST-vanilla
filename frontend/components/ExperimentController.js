@@ -19,10 +19,16 @@ const ExperimentController = () => {
 
   const { experimentId, currentTrial, currentDigit, isActive, phase } = useSelector(state => state.experiment);
   const { responseCount, isReady: isCameraReady } = useSelector(state => state.capture);
+  const [captureRequested, setCaptureRequested] = useState(false); 
+
 
   const shouldCaptureImage = (count) => {
     const capturePoints = [0, 2, 5, 8, 11, 14];
-    return capturePoints.includes(count);
+    if (capturePoints.includes(count) && !captureRequested) {
+      setCaptureRequested(true);
+      return true;
+    }
+    return false;
   };
 
   useEffect(() => {
@@ -70,6 +76,7 @@ const ExperimentController = () => {
   const handleResponse = async (response, digit) => {
     console.log('HandleResponse called with:', { response, digit });
     dispatch(incrementResponseCount());
+    setCaptureRequested(false);
     
     const responseData = {
       experimentId,

@@ -21,7 +21,17 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
   const { isCapturing, deviceStatus } = useSelector(state => state.capture);
+  const captureRef = useRef(false);
 
+  useEffect(() => {
+    if (shouldCapture && !captureRef.current && deviceStatus === 'ready' && !isCapturing) {
+      captureRef.current = true;
+      captureImage().finally(() => {
+        captureRef.current = false;
+      });
+    }
+  }, [shouldCapture, deviceStatus, isCapturing]);
+  
   const initializeCamera = async () => {
     try {
       const config = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.STATE}?experimentId=${experimentId}&type=capture`, {

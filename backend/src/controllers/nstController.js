@@ -182,18 +182,20 @@ const submitResponse = async (req, res) => {
 // Capture Control Controllers
 const submitCapture = async (req, res) => {
   try {
-    const result = await mediaHandler.saveCapture(
-      req.params.sessionId,
+    console.log('Capture request body:', req.body);
+    const result = await mediaHandler.saveTrialCapture(
+      req.body.experimentId,
       req.body.trialNumber,
-      req.body.digitNumber,
-      req.body.imageData
+      req.body.captureData
     );
+    console.log('Capture result:', result);
     res.json({
       success: true,
       filepath: result.filepath,
       metadata: result.metadata
     });
   } catch (error) {
+    console.error('Capture error:', error);
     res.status(500).json({ error: error.message });
   }
 };
