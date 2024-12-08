@@ -8,11 +8,9 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
 
-const { generateMarkovNumber } = require('./utils/markovChain');
-const NSTService = require('./services/nstService');
-const nstService = new NSTService();
 const MediaHandler = require('./services/mediaHandler');
-const routes = require('./routes/NSTRoutes');
+const stateManager = require('./services/stateManager');
+
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {

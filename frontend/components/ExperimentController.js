@@ -116,15 +116,17 @@ const ExperimentController = () => {
           }, 3000);        
         } else {
           setCurrentDigitIndex(prev => prev + 1);
-          dispatch(updateTrialState({
-            experimentId,
-            currentDigit: data.nextState.digit,
-            trialNumber: data.nextState.trialNumber,
-            digitIndex: data.nextState.digitIndex,
-            phase: 'awaiting-response',
-            transitionType: 'digit-update',
-            captureSync: true
-          }));
+          // Update the state dispatch to use the correct structure
+dispatch(updateTrialState({
+  experimentId,
+  currentDigit: data.nextDigit,  // Changed from data.nextState.digit
+  trialNumber: currentTrial,     // Use local state
+  digitIndex: currentDigitIndex + 1,
+  phase: 'awaiting-response',
+  transitionType: 'digit-update',
+  captureSync: true
+}));
+
         }
       }
     } catch (error) {

@@ -1,83 +1,95 @@
 class StateManager {
   constructor() {
     this.sessions = new Map();
-    this.sessionTimeouts = new Map();
-    this.TIMEOUT_DURATION = 30 * 60 * 1000;
-    this.subscribers = new Map();
+    this.captures = new Map();
   }
 
-  createSession(sessionId, experiment) {
-    this.sessions.set(sessionId, {
-      experiment,
+  createSession(sessionId, experimentConfig) {
+    const session = {
+      experimentConfig,
       startTime: Date.now(),
       lastActivity: Date.now(),
-      trialResponses: [],
-      captures: [],
       state: {
+        currentTrial: 0,
         currentDigit: 0,
-        currentTrialIndex: 0,
-        trials: experiment.generateTrials()
+        trials: experimentConfig.trials,
+        responses: [],
+        status: 'RUNNING'
       }
-    });
-    this.resetTimeout(sessionId);
+    };
+
+    this.sessions.set(sessionId, session);
+    return session;
   }
-  
+
   getSessionState(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
     
     session.lastActivity = Date.now();
-    this.resetTimeout(sessionId);
-    
-    return {
-      experiment: {
-        currentTrial: session.experiment.currentTrialIndex,
-        currentDigit: session.experiment.state.currentDigit,
-        totalTrials: session.experiment.trials.length,
-        responses: session.trialResponses
-      },
-      capture: {
-        captures: session.captures,
-        lastCapture: session.captures[session.captures.length - 1]
-      }
-    };
+    return session;
   }
-  
 
-  updateState(sessionId, update) {
+  updateSessionState(sessionId, updates) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    const { type, payload } = update;
-    session.state[type] = payload;
-    session.lastActivity = Date.now();
-    
-    this._notifySubscribers(sessionId);
-    this.resetTimeout(sessionId);
+    session.state = {
+      ...session.state,
+      ...updates,
+      lastActivity: Date.now()
+    };
+
+    console.log('State update:', {
+      sessionId,
+      previousState: session.state,
+      updates,
+      newState: {...session.state, ...updates}
+    });
+
     return session.state;
   }
 
-  // Using underscore prefix as convention for "internal" methods
-  _notifySubscribers(sessionId) {
-    const subscribers = this.subscribers.get(sessionId);
-    if (subscribers) {
-      const state = this.getSessionState(sessionId);
-      subscribers.forEach(callback => callback(state));
-    }
+  recordResponse(sessionId, responseData) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+
+    session.state.responses.push({
+      ...responseData,
+      timestamp: Date.now()
+    });
+
+    console.log('Response recorded:', {
+      sessionId,
+      responseData,
+      totalResponses: session.state.responses.length
+    });
+
+    return session.state;
   }
 
-  resetTimeout(sessionId) {
-    if (this.sessionTimeouts.has(sessionId)) {
-      clearTimeout(this.sessionTimeouts.get(sessionId));
-    }
+  // Capture methods
+  addCapture(sessionId, captureData) {
+    const captures = this.captures.get(sessionId) || [];
+    const newCapture = {
+      timestamp: Date.now(),
+      data: captureData
+    };
     
-    const timeout = setTimeout(() => {
-      this.sessions.delete(sessionId);
-      this.sessionTimeouts.delete(sessionId);
-      this.subscribers.delete(sessionId);
-    }, this.TIMEOUT_DURATION);
-    
-    this.sessionTimeouts.set(sessionId, timeout);
+    captures.push(newCapture);
+    this.captures.set(sessionId, captures);
+    return newCapture;
+  }
+
+  getSessionCaptures(sessionId) {
+    return this.captures.get(sessionId) || [];
+  }
+
+  // Session cleanup
+  endSession(sessionId) {
+    this.sessions.delete(sessionId);
+    this.captures.delete(sessionId);
+    return true;
   }
 }
 
