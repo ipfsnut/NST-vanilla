@@ -263,7 +263,6 @@ router.get('/captures/:sessionId', nstController.getSessionCaptures);
  * @desc Validate export data structure
  * @state ANY
  * @vision NSTvision.txt:Export Management:POST /export/validate
- * @triggers Export validation via ServiceCoordinator
  * @returns {Object} isValid, errors[], metadata
  */
 router.post('/export/validate', nstController.validateExportData);

@@ -3,12 +3,10 @@ const { generateMarkovNumber } = require('../utils/markovChain');
 const MediaHandler = require('../services/mediaHandler');
 const stateManager = require('../services/stateManager');
 const { createAndDownloadZip } = require('../utils/zipCreator');
-const ServiceCoordinator = require('../services/ServiceCoordinator');
 const config = require('../config');
 
 const nstService = new NSTService();
 const mediaHandler = new MediaHandler();
-const serviceCoordinator = new ServiceCoordinator(nstService, null, mediaHandler);
 
 
 // Session Management Controllers
@@ -16,6 +14,19 @@ const startSession = async (req, res) => {
   try {
     const experimentId = Date.now().toString();
     const session = await nstService.startExperiment('nst', experimentId);
+    
+    // Format experiment data for StateManager
+    const experimentData = {
+      type: 'nst',
+      trials: session.trials,
+      state: {
+        currentDigit: session.trials[0].number[0],
+        currentTrialIndex: 0
+      }
+    };
+    
+    await stateManager.createSession(experimentId, experimentData);
+    
     const initialState = {
       currentDigit: session.trials[0].number[0],
       trials: session.trials,
@@ -32,9 +43,15 @@ const startSession = async (req, res) => {
     console.error('Start session error:', error);
     res.status(500).json({ error: error.message });
   }
-};const getExperimentState = async (req, res) => {
+};
+
+
+
+const getExperimentState = async (req, res) => {
   try {
-    const state = await nstService.getExperimentState();
+    const { experimentId, type } = req.query;
+    console.log(`Getting ${type} state for experiment: ${experimentId}`);
+    const state = await stateManager.getSessionState(experimentId);
     res.json({ state });
   } catch (error) {
     res.status(500).json({ error: error.message });
@@ -182,23 +199,29 @@ const submitResponse = async (req, res) => {
 // Capture Control Controllers
 const submitCapture = async (req, res) => {
   try {
-    console.log('Capture request body:', req.body);
-    const result = await mediaHandler.saveTrialCapture(
-      req.body.experimentId,
-      req.body.trialNumber,
-      req.body.captureData
+    const { experimentId, trialNumber, captureData } = req.body;
+    // Save to filesystem via MediaHandler
+    const fileResult = await mediaHandler.saveTrialCapture(
+      experimentId,
+      trialNumber, 
+      captureData
     );
-    console.log('Capture result:', result);
+    // Update state via StateManager
+    await stateManager.addCapture(experimentId, {
+      ...fileResult,
+      trialNumber
+    });
     res.json({
       success: true,
-      filepath: result.filepath,
-      metadata: result.metadata
+      filepath: fileResult.filepath,
+      metadata: fileResult.metadata
     });
   } catch (error) {
     console.error('Capture error:', error);
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const getCaptureConfig = async (req, res) => {
   try {
@@ -257,13 +280,13 @@ const exportSessionData = async (req, res) => {
 const getSessionCaptures = async (req, res) => {
   try {
     const { sessionId } = req.params;
-    const captures = await mediaHandler.getSessionCaptures(sessionId);
+    const state = await stateManager.getSessionState(sessionId);
     res.json({
-      captures,
+      captures: state.capture.captures,
       metadata: {
         sessionId,
         timestamp: Date.now(),
-        count: captures.length
+        count: state.capture.captures.length
       }
     });
   } catch (error) {
@@ -271,13 +294,18 @@ const getSessionCaptures = async (req, res) => {
   }
 };
 
+
 const validateExportData = async (req, res) => {
   try {
-    const validation = await serviceCoordinator.validateExportData(req.body);
+    const validation = await mediaHandler.validateCapture(req.body);
     res.json({
       isValid: validation.isValid,
-      errors: validation.errors,
-      metadata: validation.metadata
+      errors: [],
+      metadata: {
+        size: validation.size,
+        timestamp: Date.now(),
+        format: req.body.format || 'zip'
+      }
     });
   } catch (error) {
     res.status(500).json({ error: error.message });
