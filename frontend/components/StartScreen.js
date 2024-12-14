@@ -29,7 +29,7 @@ const StartScreen = () => {
 
   return (
     <div className="start-screen">
-      <h1>Number Sequence Task</h1>
+      <h1>Number Switching Task</h1>
       <p>Press 'f' for odd numbers</p>
       <p>Press 'j' for even numbers</p>
       {deviceStatus === 'ready' && (

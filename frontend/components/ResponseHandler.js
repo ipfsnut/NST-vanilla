@@ -1,87 +1,60 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateTrialState, setResponsePending } from '../redux/experimentSlice';
-import { incrementResponseCount } from '../redux/captureSlice';
 import { API_CONFIG } from '../config/api';
+import { addResponse, updateTrialState } from '../redux/experimentSlice';
 
-const ResponseHandler = ({ experimentId, currentDigit, onResponse }) => {
+
+const ResponseHandler = ({ experimentId, currentDigit, onResponseComplete }) => {
   const dispatch = useDispatch();
-  const { responseCount } = useSelector(state => state.capture);
   const { phase } = useSelector(state => state.experiment);
 
-  const compareStateVectors = (clientVector, serverVector) => {
-    if (!serverVector || !serverVector.trial) {
-      return true;
-    }
-    return (
-      clientVector.trial === serverVector.trial &&
-      clientVector.digit === serverVector.digit &&
-      clientVector.phase === serverVector.phase &&
-      Math.abs(clientVector.vector[0] - serverVector.vector[0]) <= 1
-    );
-  }
-
-  const calculateDrift = (clientVector, serverVector) => {
+  const validateResponse = (key, digit) => {
+    const isOdd = digit % 2 === 1;
     return {
-      trialDrift: serverVector.trial - clientVector.trial,
-      digitDrift: serverVector.digit - clientVector.digit,
-      phaseDrift: serverVector.phase !== clientVector.phase,
-      vectorDrift: serverVector.vector.map((v, i) => v - clientVector.vector[i])
+      isCorrect: (key === 'f' && isOdd) || (key === 'j' && !isOdd),
+      responseType: key === 'f' ? 'odd' : 'even'
     };
-  }
+  };
 
   const handleKeyPress = async (event) => {
-    if (phase !== 'running' && phase !== 'awaiting-response') return;
-    
-    if (event.key === 'f' || event.key === 'j') {
-      console.log('Valid key pressed:', event.key);
-      dispatch(setResponsePending(true));
-      
-      const stateVector = {
-        trial: currentDigit,
-        phase,
-        vector: [responseCount, Date.now()]
-      };
+    if (event.key !== 'f' && event.key !== 'j' || phase !== 'running') return;
 
-      try {
-        const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({
-            experimentId,
-            response: event.key,
-            digit: currentDigit,
-            stateVector
-          })
-        });
+    const validation = validateResponse(event.key, currentDigit);
+    console.log('Response validation:', validation);
 
-        const data = await response.json();
-        
-        if (!compareStateVectors(stateVector, data.stateVector)) {
-          const drift = calculateDrift(stateVector, data.stateVector);
-          console.error('State drift detected:', drift);
-          throw new Error('State synchronization error');
-        }
+    try {
+      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          experimentId,
+          response: event.key,
+          responseType: validation.responseType,
+          digit: currentDigit,
+          isCorrect: validation.isCorrect,
+          timestamp: Date.now()
+        })
+      });
 
-        dispatch(incrementResponseCount());
-        onResponse(event.key, currentDigit);
-        
-      } catch (error) {
-        console.error('Response processing error:', error);
-        dispatch(updateTrialState({
-          phase: 'error',
-          transitionType: 'response-error'
+      const data = await response.json();
+      if (data.success) {
+        dispatch(addResponse({
+          key: event.key,
+          digit: currentDigit,
+          isCorrect: validation.isCorrect,
+          timestamp: Date.now()
         }));
-      } finally {
-        dispatch(setResponsePending(false));
+        onResponseComplete();
       }
+    } catch (error) {
+      console.error('Response processing error:', error);
     }
   };
 
   React.useEffect(() => {
     window.addEventListener('keypress', handleKeyPress);
     return () => window.removeEventListener('keypress', handleKeyPress);
-  }, [currentDigit, phase, responseCount]);
+  }, [currentDigit, experimentId, phase, dispatch, onResponseComplete]);
 
   return null;
 };

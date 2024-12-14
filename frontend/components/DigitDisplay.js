@@ -1,9 +1,15 @@
-import React from 'react';
+import React, { memo } from 'react';
 import { useSelector } from 'react-redux';
 
-const DigitDisplay = () => {
+const DigitDisplay = memo(() => {
   const { currentDigit, phase } = useSelector(state => state.experiment);
   const { isCapturing } = useSelector(state => state.capture);
+
+  console.log('Rendering digit:', {
+    currentDigit,
+    isCapturing,
+    timestamp: Date.now()
+  });
 
   return (
     <div className={`digit-display ${isCapturing ? 'capture-flash' : ''}`}>
@@ -14,6 +20,8 @@ const DigitDisplay = () => {
       )}
     </div>
   );
-};
+});
+
+DigitDisplay.displayName = 'DigitDisplay';
 
 export default DigitDisplay;

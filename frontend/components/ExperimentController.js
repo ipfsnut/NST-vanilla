@@ -1,7 +1,13 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateTrialState } from '../redux/experimentSlice';
-import { incrementResponseCount, resetResponseCount } from '../redux/captureSlice';
+import {
+  updateTrialState,
+  setTrials,
+  setTransitioning,
+  setCaptureRequested,
+  setComplete
+} from '../redux/experimentSlice';
+import { incrementResponseCount } from '../redux/captureSlice';
 import { API_CONFIG } from '../config/api';
 import StartScreen from './StartScreen';
 import DigitDisplay from './DigitDisplay';
@@ -11,30 +17,54 @@ import ResultsView from './ResultsView';
 
 const ExperimentController = () => {
   const dispatch = useDispatch();
-  const [currentDigitIndex, setCurrentDigitIndex] = useState(0);
-  const [trialResponses, setTrialResponses] = useState([]);
-  const [trials, setTrials] = useState([]);
-  const [isComplete, setIsComplete] = useState(false);
-  const [isTransitioning, setIsTransitioning] = useState(false);
+  
+  const {
+    experimentId,
+    currentTrial,
+    currentDigit,
+    phase,
+    digitIndex,
+    trials,
+    isComplete,
+    isTransitioning,
+    captureRequested
+  } = useSelector(state => state.experiment);
+  const { responseCount } = useSelector(state => state.capture);
 
-  const { experimentId, currentTrial, currentDigit, isActive, phase } = useSelector(state => state.experiment);
-  const { responseCount, isReady: isCameraReady } = useSelector(state => state.capture);
-  const [captureRequested, setCaptureRequested] = useState(false); 
-
-
-  const shouldCaptureImage = (count) => {
+  const shouldCaptureImage = useCallback((count) => {
     const capturePoints = [0, 2, 5, 8, 11, 14];
-    if (capturePoints.includes(count) && !captureRequested) {
-      setCaptureRequested(true);
-      return true;
-    }
-    return false;
-  };
+    return capturePoints.includes(count) && !captureRequested;
+  }, [captureRequested]);
 
+  // Debug logging
+  useEffect(() => {
+    console.log('Experiment state:', {
+      phase,
+      experimentId,
+      currentTrial,
+      currentDigit,
+      trialsCount: trials.length
+    });
+  }, [phase, experimentId, currentTrial, currentDigit, trials]);
+
+  // Capture check
+  useEffect(() => {
+    console.log('Capture check:', {
+      responseCount,
+      captureRequested,
+      shouldCapture: shouldCaptureImage(responseCount)
+    });
+    
+    if (shouldCaptureImage(responseCount)) {
+      dispatch(setCaptureRequested(true));
+    }
+  }, [responseCount, captureRequested, dispatch, shouldCaptureImage]);
+
+  // Session initialization
   useEffect(() => {
     const initializeSession = async () => {
       if (phase === 'initializing' && !experimentId) {
-        setIsTransitioning(true);
+        dispatch(setTransitioning(true));
         try {
           const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.START}`, {
             method: 'POST',
@@ -43,26 +73,20 @@ const ExperimentController = () => {
           });
           
           const experimentData = await response.json();
-          console.log('Received experiment data:', experimentData);
+          console.log('Session initialized:', experimentData);
           
-          setTrials(experimentData.trials);
+          dispatch(setTrials(experimentData.trials));
           dispatch(updateTrialState({
             experimentId: experimentData.experimentId,
             currentDigit: experimentData.currentDigit,
             currentTrial: 0,
-            digitIndex: 0,
-            phase: 'running',
-            transitionType: 'experiment-init',
-            captureSync: true
+            phase: 'running'
           }));
         } catch (error) {
           console.error('Initialization error:', error);
-          dispatch(updateTrialState({
-            phase: 'error',
-            transitionType: 'init-error'
-          }));
+          dispatch(updateTrialState({ phase: 'error' }));
         }
-        setTimeout(() => setIsTransitioning(false), 500);
+        setTimeout(() => dispatch(setTransitioning(false)), 500);
       }
     };
 
@@ -73,132 +97,49 @@ const ExperimentController = () => {
     }
   }, [phase, experimentId, dispatch]);
 
-  const handleResponse = async (response, digit) => {
-    console.log('HandleResponse called with:', { response, digit });
-    dispatch(incrementResponseCount());
-    setCaptureRequested(false);
+  const startNextTrial = useCallback(async () => {
+    console.log('Starting next trial:', { currentTrial, trialsCount: trials.length });
+    dispatch(setTransitioning(true));
     
-    const responseData = {
-      experimentId,
-      response: response === 'f' ? 'odd' : 'even',
-      trialNumber: currentTrial,
-      digit: currentDigit,
-      requiresCapture: shouldCaptureImage(responseCount)
-    };
-
-    try {
-      const result = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(responseData)
-      });
-      const data = await result.json();
-      console.log('Response processing result:', data);
-      
-      if (data.isCorrect) {
-        if (data.trialComplete) {
-          dispatch(resetResponseCount());
-          dispatch(updateTrialState({
-            phase: 'trial-complete',
-            transitionType: 'trial-complete'
-          }));
-          
-          setTimeout(async () => {
-            if (data.isLastTrial) {
-              setIsComplete(true);
-              dispatch(updateTrialState({
-                phase: 'complete',
-                transitionType: 'experiment-complete'
-              }));
-            } else {
-              await startNextTrial();
-            }
-          }, 3000);        
-        } else {
-          setCurrentDigitIndex(prev => prev + 1);
-          // Update the state dispatch to use the correct structure
-dispatch(updateTrialState({
-  experimentId,
-  currentDigit: data.nextDigit,  // Changed from data.nextState.digit
-  trialNumber: currentTrial,     // Use local state
-  digitIndex: currentDigitIndex + 1,
-  phase: 'awaiting-response',
-  transitionType: 'digit-update',
-  captureSync: true
-}));
-
-        }
-      }
-    } catch (error) {
-      console.error('Response processing error:', error);
-      dispatch(updateTrialState({
-        phase: 'error',
-        transitionType: 'response-error'
-      }));
-    }
-  };
-
-  const startNextTrial = async () => {
-    console.log('Starting next trial');
-    setIsTransitioning(true);
     try {
       const trialState = await fetch(
         `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRIAL_STATE}?experimentId=${experimentId}`
       );
       const data = await trialState.json();
       
-      setCurrentDigitIndex(0);
-      setTrialResponses([]);
-      
       dispatch(updateTrialState({
-        experimentId,
-        digit: data.currentDigit,
-        trialNumber: data.trialState.trialNumber,
+        currentDigit: data.currentDigit,
+        currentTrial: data.trialState.trialNumber,
         digitIndex: 0,
-        phase: 'trial-start',
-        transitionType: 'trial-init',
-        captureSync: true
+        phase: 'trial-start'
       }));
     } catch (error) {
       console.error('Trial state error:', error);
-      dispatch(updateTrialState({
-        phase: 'error',
-        transitionType: 'trial-error'
-      }));
+      dispatch(updateTrialState({ phase: 'error' }));
     }
-    setTimeout(() => setIsTransitioning(false), 500);
-  };
+    setTimeout(() => dispatch(setTransitioning(false)), 500);
+  }, [currentTrial, trials.length, experimentId, dispatch]);
 
+  // Trial phase transition
   useEffect(() => {
     if (phase === 'trial-start') {
-      dispatch(updateTrialState({
-        phase: 'running',
-        transitionType: 'trial-running'
-      }));
+      dispatch(updateTrialState({ phase: 'running' }));
     }
   }, [phase, dispatch]);
-
-  console.log('ExperimentController render:', { phase, experimentId, currentDigit });
 
   return (
     <div className={`experiment-wrapper ${isTransitioning ? 'fade' : ''}`}>
       {phase === 'start' && <StartScreen />}
+      
       {(phase === 'running' || phase === 'awaiting-response') && !isComplete && (
         <>
-          <DigitDisplay
-            digit={currentDigit}
-            isTransitioning={currentDigitIndex !== 0}
-          />
-          {experimentId && (
+          <DigitDisplay />
+          {experimentId && trials.length > 0 && (
             <>
               <ResponseHandler
                 experimentId={experimentId}
                 currentDigit={currentDigit}
-                trialNumber={currentTrial}
-                sequence={trials[currentTrial]?.sequence}
-                digitIndex={currentDigitIndex}
-                dispatch={dispatch}
-                onResponse={handleResponse}
+                onResponseComplete={startNextTrial}
               />
               <CameraCapture
                 experimentId={experimentId}
@@ -208,12 +149,17 @@ dispatch(updateTrialState({
           )}
         </>
       )}
+      
       {phase === 'complete' && (
         <ResultsView
           experimentId={experimentId}
-          onExportComplete={() => console.log('Export completed')}
+          onExportComplete={() => {
+            console.log('Export completed');
+            dispatch(setComplete(true));
+          }}
         />
       )}
+      
       {phase === 'error' && (
         <div className="error-message">
           An error occurred. Please restart the experiment.

@@ -224,17 +224,28 @@ const getNextDigit = async (req, res) => {
 
 const submitResponse = async (req, res) => {
   try {
-    const result = await stateManager.processResponse(
-      req.body.experimentId,
-      req.body.response
-    );
-    res.json(result);
+    const { experimentId, response, isCorrect, digit } = req.body;
+    const session = await stateManager.getSessionState(experimentId);
+    
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    // Just store the response
+    await stateManager.recordResponse(experimentId, {
+      response,
+      isCorrect,
+      digit,
+      timestamp: Date.now()
+    });
+
+    res.json({ success: true });
+
   } catch (error) {
-    console.error('Response processing error:', error);
+    console.error('Response storage error:', error);
     res.status(500).json({ error: error.message });
   }
 };
-
 
 // Capture Control Controllers
 const submitCapture = async (req, res) => {

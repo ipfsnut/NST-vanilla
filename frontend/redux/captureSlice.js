@@ -3,19 +3,26 @@ import { createSlice } from '@reduxjs/toolkit';
 const captureSlice = createSlice({
   name: 'capture',
   initialState: {
-    isReady: false,
     isCapturing: false,
+    deviceStatus: 'initial',
+    captureQueue: [],
     lastCapture: null,
     error: null,
-    deviceStatus: 'uninitiated',
-    responseCount: 0,
-    captures: [],
     metadata: {
-      deviceInfo: null,
-      lastCaptureTime: null
-    }
+      lastCaptureTime: null,
+      deviceInfo: null
+    },
+    captures: [],
+    responseCount: 0
   },
+  
   reducers: {
+    addToQueue: (state, action) => {
+      state.captureQueue.push(action.payload);
+    },
+    removeFromQueue: (state, action) => {
+      state.captureQueue = state.captureQueue.filter(item => item.id !== action.payload);
+    },
     setCameraReady: (state, action) => {
       state.isReady = action.payload;
       state.deviceStatus = action.payload ? 'ready' : 'error';
@@ -53,7 +60,9 @@ export const {
   setCaptureError,
   incrementResponseCount,
   resetResponseCount,
-  updateDeviceInfo
+  updateDeviceInfo,
+  addToQueue,
+  removeFromQueue
 } = captureSlice.actions;
 
 export default captureSlice.reducer;

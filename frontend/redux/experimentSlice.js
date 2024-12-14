@@ -7,6 +7,10 @@ const experimentSlice = createSlice({
     currentDigit: null,
     currentTrial: 1,
     digitIndex: 0,
+    trials: [],
+    isComplete: false,
+    isTransitioning: false,
+    captureRequested: false,
     responses: [],
     isActive: false,
     phase: 'start',
@@ -23,8 +27,12 @@ const experimentSlice = createSlice({
   },
   reducers: {
     updateTrialState: (state, action) => {
-      console.log('Reducer received:', action.payload);
-
+      console.log('Trial State Update:', {
+        currentDigit: action.payload.currentDigit,
+        newPhase: action.payload.phase,
+        oldDigit: state.currentDigit,
+        oldPhase: state.phase
+      });
       if (action.payload.experimentId) {
         state.experimentId = action.payload.experimentId;
       }
@@ -58,6 +66,21 @@ const experimentSlice = createSlice({
         ...action.payload
       };
     },
+    setTrials: (state, action) => {
+      state.trials = action.payload;
+    },
+  
+    setTransitioning: (state, action) => {
+      state.isTransitioning = action.payload;
+    },
+  
+    setCaptureRequested: (state, action) => {
+      state.captureRequested = action.payload;
+    },
+  
+    setComplete: (state, action) => {
+      state.isComplete = action.payload;
+    },
     addResponse: (state, action) => {
       state.responses.push({
         ...action.payload,
@@ -67,12 +90,17 @@ const experimentSlice = createSlice({
   }
 });
 
-export const { 
-  updateTrialState, 
-  setResponsePending, 
+export const {
+  updateTrialState,
+  setResponsePending,
   setCaptureAndWait,
   updateCaptureConfig,
-  addResponse
+  addResponse,
+  setTrials,
+  setTransitioning,
+  setCaptureRequested,
+  setComplete
 } = experimentSlice.actions;
+
 
 export default experimentSlice.reducer;

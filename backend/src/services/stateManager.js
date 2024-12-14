@@ -2,6 +2,7 @@ class StateManager {
   constructor() {
     this.sessions = new Map();
     this.captures = new Map();
+    this.stateTransitions = new Map();
   }
 
   createSession(sessionId, experimentConfig) {
@@ -19,32 +20,58 @@ class StateManager {
     };
 
     this.sessions.set(sessionId, session);
+    this.stateTransitions.set(sessionId, []);
     return session;
   }
 
   getSessionState(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
-    
     session.lastActivity = Date.now();
     return session;
+  }
+
+  getFullStateVector(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+    
+    return {
+      experimentState: session.state,
+      captureState: this.captures.get(sessionId),
+      responseState: session.state.responses,
+      lastUpdate: Date.now(),
+      metadata: {
+        trialNumber: session.state.currentTrial,
+        digitIndex: session.state.currentDigit
+      }
+    };
   }
 
   updateSessionState(sessionId, updates) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
+    const previousState = {...session.state};
+    const transitionTimestamp = Date.now();
+
     session.state = {
       ...session.state,
       ...updates,
-      lastActivity: Date.now()
+      lastActivity: transitionTimestamp
     };
+
+    const transitions = this.stateTransitions.get(sessionId);
+    transitions.push({
+      from: previousState,
+      to: session.state,
+      timestamp: transitionTimestamp
+    });
 
     console.log('State update:', {
       sessionId,
-      previousState: session.state,
+      previousState,
       updates,
-      newState: {...session.state, ...updates}
+      newState: session.state
     });
 
     return session.state;
@@ -68,14 +95,12 @@ class StateManager {
     return session.state;
   }
 
-  // Capture methods
   addCapture(sessionId, captureData) {
     const captures = this.captures.get(sessionId) || [];
     const newCapture = {
       timestamp: Date.now(),
       data: captureData
     };
-    
     captures.push(newCapture);
     this.captures.set(sessionId, captures);
     return newCapture;
@@ -85,10 +110,14 @@ class StateManager {
     return this.captures.get(sessionId) || [];
   }
 
-  // Session cleanup
+  getStateTransitions(sessionId) {
+    return this.stateTransitions.get(sessionId) || [];
+  }
+
   endSession(sessionId) {
     this.sessions.delete(sessionId);
     this.captures.delete(sessionId);
+    this.stateTransitions.delete(sessionId);
     return true;
   }
 }
