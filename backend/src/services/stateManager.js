@@ -26,7 +26,7 @@ class StateManager {
       lastActivity: Date.now(),
       state: {
         currentTrial: 0,
-        currentDigit: 0,
+        digitIndex: 0,
         trials: experimentConfig.trials,
         responses: [],
         status: 'INIT'
@@ -56,7 +56,7 @@ class StateManager {
       lastUpdate: Date.now(),
       metadata: {
         trialNumber: session.state.currentTrial,
-        digitIndex: session.state.currentDigit
+        digitIndex: session.state.digitIndex
       }
     };
   }
@@ -64,26 +64,37 @@ class StateManager {
   updateSessionState(sessionId, updates) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
-
+  
+    // Only check sequence length if we're in a trial
     if (updates.phase === 'trial-start') {
-      session.state.currentTrial++;
-      session.state.currentDigit = 0;
+      const currentTrial = session.state.trials[session.state.currentTrial];
+      if (currentTrial && currentTrial.number) {  // Changed from sequence to number
+        const sequenceLength = currentTrial.number.length;
+        
+        if (session.state.digitIndex >= sequenceLength - 1) {
+          session.state.currentTrial++;
+          session.state.digitIndex = 0;
+        } else {
+          session.state.digitIndex++;
+        }
+  
+        console.log('Progressing sequence:', {
+          currentTrial: session.state.currentTrial,
+          digitIndex: session.state.digitIndex,
+          currentDigit: currentTrial.number[session.state.digitIndex]
+        });
+      }
     }
-
+  
     session.state = {
       ...session.state,
       ...updates,
       lastActivity: Date.now()
     };
-
-    console.log('State update:', {
-      sessionId,
-      currentTrial: session.state.currentTrial,
-      phase: session.state.phase
-    });
-
+  
     return session;
   }
+  
 
   recordResponse(sessionId, responseData) {
     const session = this.sessions.get(sessionId);

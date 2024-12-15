@@ -66,6 +66,10 @@ const experimentSlice = createSlice({
       transitionType: null,
       captureSync: false,
       validationState: null
+    },
+    captureState: {
+      lastCaptureTrial: 0,
+      isProcessing: false
     }
   },
   reducers: {
@@ -114,14 +118,18 @@ const experimentSlice = createSlice({
     },
 
     processResponseQueue: (state) => {
-      if (!state.responses.captureTriggered && state.trialState.trialNumber > 0 && state.trialState.trialNumber % 3 === 0) {
-        state.responses.captureTriggered = true;
+      if (!state.captureState.isProcessing && 
+          state.trialState.trialNumber % 3 === 0 && 
+          state.trialState.trialNumber !== state.captureState.lastCaptureTrial) {
+        state.captureState.isProcessing = true;
+        state.captureState.lastCaptureTrial = state.trialState.trialNumber;
       }
     },
 
     completeResponseProcessing: (state) => {
       state.responses.queue = [];
       state.responses.lastProcessed = Date.now();
+      state.captureState.isProcessing = false;
     },
 
     updateCaptureConfig: (state, action) => {
@@ -138,8 +146,8 @@ const experimentSlice = createSlice({
     setComplete: (state, action) => {
       state.isComplete = action.payload;
     }
-  }});
-
+  }
+});
 export const {
   updateTrialState,
   queueResponse,

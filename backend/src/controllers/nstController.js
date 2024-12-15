@@ -7,6 +7,12 @@ const { createAndDownloadZip } = require('../utils/zipCreator');
 const config = require('../config');
 
 // Core Session Management
+/**
+ * @frontend ExperimentController initiates session
+ * Creates new experiment session and returns initial state
+ * Frontend needs: none (POST request only)
+ * Frontend receives: experimentId, initial digit, trial metadata
+ */
 const startSession = async (req, res) => {
   try {
     const experimentId = Date.now().toString();
@@ -31,6 +37,7 @@ const startSession = async (req, res) => {
 
     await stateManager.updateSessionState(experimentId, { status: 'RUNNING' });
     
+    // This structure maps directly to frontend experimentSlice initial state
     const initialState = {
       trialState: {
         currentDigit: trials[0].number[0],
@@ -101,6 +108,12 @@ const requestStateTransition = async (req, res) => {
 };
 
 // Trial Management
+/**
+ * @frontend ExperimentController requests current trial state
+ * Returns current digit and trial metadata for display
+ * Frontend needs: experimentId (query param)
+ * Frontend receives: currentDigit, trialNumber, phase, metadata
+ */
 const getTrialState = async (req, res) => {
   try {
     const { experimentId } = req.query;
@@ -116,14 +129,23 @@ const getTrialState = async (req, res) => {
     console.log('Trial state request:', {
       experimentId,
       currentTrialIndex,
-      hasCurrentTrial: !!currentTrial
+      currentDigit: currentTrial?.number[session.state.digitIndex],
+      digitIndex: session.state.digitIndex
     });
     
+    if (currentTrialIndex >= session.state.trials.length) {
+      return res.json({
+        trialState: {
+          phase: 'complete'
+        }
+      });
+    }
+
     res.json({
       trialState: {
-        currentDigit: currentTrial.number[session.state.currentDigit],
+        currentDigit: currentTrial.number[session.state.digitIndex],
         trialNumber: currentTrialIndex + 1,
-        digitIndex: session.state.currentDigit,
+        digitIndex: session.state.digitIndex,
         phase: session.state.phase,
         metadata: {
           effortLevel: currentTrial.effortLevel,
@@ -172,6 +194,12 @@ const getNextDigit = async (req, res) => {
 };
 
 // Response Handling
+/**
+ * @frontend CameraCapture submits image data
+ * Stores captured images with trial metadata
+ * Frontend needs: experimentId, trialNumber, base64 image data
+ * Frontend receives: capture success status, filepath
+ */
 const submitResponse = async (req, res) => {
   try {
     const { experimentId, responses } = req.body;
@@ -204,6 +232,12 @@ const submitResponse = async (req, res) => {
 };
 
 // Media Handling
+/**
+ * @frontend ExperimentController checks progress
+ * Returns experiment completion status and metrics
+ * Frontend needs: experimentId (query param)
+ * Frontend receives: currentTrial, totalTrials, percentComplete
+ */
 const submitCapture = async (req, res) => {
   try {
     const { experimentId, trialNumber, captureData } = req.body;
@@ -381,6 +415,12 @@ const getRecoveryInstructions = async (req, res) => {
   }
 };
 
+/**
+ * @frontend ResultsView requests final data
+ * Returns complete experiment data for analysis
+ * Frontend needs: experimentId (query param)
+ * Frontend receives: trials, responses, captures, metrics
+ */
 const getProgress = async (req, res) => {
   try {
     const { experimentId } = req.query;

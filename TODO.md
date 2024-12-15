@@ -20,26 +20,25 @@
    - Recovery mechanisms in place
 
 ## Phase 2: Trial Progression Implementation
+1. Frontend State Management ✓
+   - Redux state shape defines trial/response/capture coordination ✓
+   - ExperimentController subscribes to specific state segments ✓
+   - Middleware handles async operation queuing ✓
+   - State transitions trigger appropriate UI updates ✓
 
-1. Frontend State Management
-   Files: frontend/redux/experimentSlice.js, frontend/components/ExperimentController.js
-   Connection Points:
-   - Redux state shape defines trial/response/capture coordination
-   - ExperimentController subscribes to specific state segments
-   - Middleware handles async operation queuing
-   - State transitions trigger appropriate UI updates
+2. Digit Sequence Generation (Priority)
+   - Implement MarkovChain digit generation per trial
+   - Add sequence validation
+   - Store generated sequences in trial metadata
+   - Add effort level progression logic
 
-2. Controller Logic
-   Files: frontend/components/ExperimentController.js, frontend/components/ResponseHandler.js
-   Connection Points:
-   - ExperimentController manages trial flow through Redux actions
-   - ResponseHandler validates and dispatches responses
-   - Clear state machine transitions
-   - Capture timing coordinated with responses
+3. Controller Logic
+   - Capture loop needs phase-based control
+   - Trial count overflow needs bounds checking
+   - Implement capture phase gating
+   - Add trial bounds validation
 
-3. Backend Operations
-   Files: backend/src/controllers/nstController.js, backend/src/services/stateManager.js
-   Connection Points:
+4. Backend Operations
    - StateManager validates all transitions
    - Controllers handle stateless data recording
    - Clean API contracts for frontend consumption
@@ -48,6 +47,7 @@
 ## Success Criteria
 - Complete state vector validation ✓
 - Zero sync errors in response-capture chain
+- Proper digit sequence generation per trial
 - Smooth trial progression
 - Reliable media operations
 - Comprehensive error recovery

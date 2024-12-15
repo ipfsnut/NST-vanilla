@@ -1,32 +1,40 @@
 import React, { useEffect, useCallback } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import {
-  updateTrialState,
-  setTrials,
-  queueResponse,
-  processResponseQueue,
-  setComplete
+  updateTrialState,  // Updates trial phase and metadata
+  setTrials,         // Sets full trial sequence from backend
+  queueResponse,     // Adds response to processing queue
+  processResponseQueue, // Triggers backend response submission
+  setComplete        // Marks experiment as complete
 } from '../redux/experimentSlice';
 import { API_CONFIG } from '../config/api';
+// UI Components
 import StartScreen from './StartScreen';
 import DigitDisplay from './DigitDisplay';
 import ResponseHandler from './ResponseHandler';
 import CameraCapture from './CameraCapture';
 import ResultsView from './ResultsView';
 
+/**
+ * ExperimentController
+ * Core component managing NST experiment flow and state coordination with backend
+ * 
+ * State Flow:
+ * 1. start -> initializing -> running (Session creation)
+ * 2. running -> awaiting-response -> trial-start -> running (Trial cycle)
+ * 3. running -> complete (Experiment end)
+ */
+
 const ExperimentController = () => {
   const dispatch = useDispatch();
+  // Core state selectors
   const {
-    experimentId,
-    trialState,
-    trials,
-    isComplete,
-    responses
+    experimentId,    // Unique session identifier from backend
+    trialState,      // Current trial phase and metadata
+    trials,          // Full sequence of trials
+    isComplete,      // Experiment completion flag
+    responses        // Response queue and processing state
   } = useSelector(state => state.experiment);
-
-  const shouldCaptureImage = useCallback(() => {
-    return trialState.trialNumber % 3 === 0;
-  }, [trialState.trialNumber]);
 
   // Core state logging
   useEffect(() => {
@@ -39,18 +47,34 @@ const ExperimentController = () => {
     });
   }, [trialState, experimentId, trials]);
 
-  // Simplified capture effect
+ /**
+   * Capture Effect
+   * Triggers image capture at specified trial intervals
+   * Coordinates with backend /capture endpoint
+   * Dependencies: trial phase, number, and capture processing state
+   */
   useEffect(() => {
-    if (trialState.phase === 'running' && trialState.trialNumber % 3 === 0) {
+    if (trialState.phase === 'running' && 
+        trialState.trialNumber > 0 && 
+        trialState.trialNumber % 3 === 0 && 
+        !responses.captureState?.isProcessing) {
       console.log('Capture check:', {
         trialNumber: trialState.trialNumber,
-        phase: trialState.phase
+        phase: trialState.phase,
+        shouldCapture: true
       });
       dispatch(processResponseQueue());
     }
-  }, [trialState.phase, trialState.trialNumber, dispatch]);
+  }, [trialState.phase, trialState.trialNumber]);
 
-  // Session initialization
+  /**
+   * Session Initialization
+   * Coordinates with backend /start endpoint
+   * Flow: 
+   * 1. Frontend signals 'initializing'
+   * 2. Backend creates session, generates trials
+   * 3. Frontend receives experimentId and initial state
+   */  
   useEffect(() => {
     const initializeSession = async () => {
       if (trialState.phase === 'initializing' && !experimentId) {
@@ -84,7 +108,12 @@ const ExperimentController = () => {
     }
   }, [trialState.phase, experimentId, dispatch]);
 
-  // Simplified trial progression
+  /**
+   * Trial Progression Handler
+   * Coordinates with backend /trial-state endpoint
+   * Triggered after valid response collection
+   * Updates digit display and trial metadata
+   */
   const startNextTrial = useCallback(async () => {
     console.log('Starting next trial:', { 
       currentTrial: trialState.trialNumber,
@@ -108,13 +137,27 @@ const ExperimentController = () => {
     }
   }, [trialState.trialNumber, trials.length, experimentId, dispatch]);
 
-  // Clean phase transition
-  useEffect(() => {
+   /**
+   * Phase Transition Effect
+   * Manages clean transitions between trial states
+   * Ensures proper phase sequencing: trial-start -> running
+   */
+   useEffect(() => {
     if (trialState.phase === 'trial-start') {
       dispatch(updateTrialState({ phase: 'running' }));
     }
   }, [trialState.phase, dispatch]);
 
+  /**
+   * Render Logic
+   * Conditional rendering based on experiment phase
+   * Components:
+   * - StartScreen: Initial experiment setup
+   * - DigitDisplay: Shows current trial digit
+   * - ResponseHandler: Processes user input
+   * - CameraCapture: Manages image capture at intervals
+   * - ResultsView: Displays completion data
+   */
   return (
     <div className="experiment-wrapper">
       {trialState.phase === 'start' && <StartScreen />}
@@ -130,7 +173,7 @@ const ExperimentController = () => {
               />
               <CameraCapture
                 experimentId={experimentId}
-                shouldCapture={trialState.trialNumber % 3 === 0}
+                shouldCapture={!responses.captureState?.isProcessing && trialState.trialNumber % 3 === 0}
               />
             </>
           )}
