@@ -65,10 +65,16 @@ class StateManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
   
-    // Only check sequence length if we're in a trial
+    // Check completion conditions first
+    if (session.state.responses.length >= 15 || 
+        session.state.currentTrial >= session.state.trials.length) {
+      return this.completeTrialSequence(sessionId);
+    }
+  
+    // Handle trial progression
     if (updates.phase === 'trial-start') {
       const currentTrial = session.state.trials[session.state.currentTrial];
-      if (currentTrial && currentTrial.number) {  // Changed from sequence to number
+      if (currentTrial?.number) {
         const sequenceLength = currentTrial.number.length;
         
         if (session.state.digitIndex >= sequenceLength - 1) {
@@ -95,6 +101,19 @@ class StateManager {
     return session;
   }
   
+
+  completeTrialSequence(sessionId) {
+    const session = this.sessions.get(sessionId);
+    return {
+      status: 'COMPLETE',
+      finalState: session.state,
+      completionTime: Date.now(),
+      metrics: {
+        totalResponses: session.state.responses.length,
+        trialsCompleted: session.state.currentTrial
+      }
+    };
+  }  
 
   recordResponse(sessionId, responseData) {
     const session = this.sessions.get(sessionId);

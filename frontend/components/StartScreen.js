@@ -11,18 +11,18 @@ const StartScreen = () => {
     checkCameraAvailability(dispatch);
   }, [dispatch]);
 
-  const handleStart = () => {
-    dispatch(updateTrialState({
-      phase: 'initializing',
-      transitionType: 'user-start'
-    }));
+  const handleKeyPress = (event) => {
+    console.log('Key pressed:', event.key);
+    if (event.key === 'f' || event.key === 'j') {
+      console.log('Dispatching initialization');
+      dispatch(updateTrialState({
+        phase: 'initializing',
+        transitionType: 'user-start'
+      }));
+    }
   };
 
   useEffect(() => {
-    const handleKeyPress = () => {
-      handleStart();
-    };
-
     window.addEventListener('keypress', handleKeyPress);
     return () => window.removeEventListener('keypress', handleKeyPress);
   }, []);
@@ -36,7 +36,7 @@ const StartScreen = () => {
         <div className="camera-status">Camera Ready ✓</div>
       )}
       <div className="start-instruction">
-        Press any key to begin
+        Press 'f' or 'j' to begin
       </div>
     </div>
   );

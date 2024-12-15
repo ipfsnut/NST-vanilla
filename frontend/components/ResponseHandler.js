@@ -2,7 +2,7 @@ import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { queueResponse, updateTrialState } from '../redux/experimentSlice';
 
-const ResponseHandler = ({ experimentId, onResponseComplete }) => {
+const ResponseHandler = ({ experimentId }) => {
   const dispatch = useDispatch();
   const { phase } = useSelector(state => state.experiment.trialState);
   const { currentDigit } = useSelector(state => state.experiment.trialState);
@@ -39,8 +39,7 @@ const ResponseHandler = ({ experimentId, onResponseComplete }) => {
     }));
 
     if (queue.length >= 10 || validation.isCorrect) {
-      dispatch(updateTrialState({ phase: 'awaiting-response' }));
-      onResponseComplete();
+      dispatch(updateTrialState({ phase: 'trial-start' }));
     }
   };
 

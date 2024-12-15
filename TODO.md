@@ -26,19 +26,25 @@
    - Middleware handles async operation queuing ✓
    - State transitions trigger appropriate UI updates ✓
 
-2. Digit Sequence Generation (Priority)
-   - Implement MarkovChain digit generation per trial
-   - Add sequence validation
-   - Store generated sequences in trial metadata
-   - Add effort level progression logic
+2. Digit Sequence Generation ✓
+   - Implement MarkovChain digit generation per trial ✓
+   - Add sequence validation ✓
+   - Store generated sequences in trial metadata ✓
+   - Add effort level progression logic ✓
 
-3. Controller Logic
+3. Trial Completion (Priority)
+   - Add 15-digit completion check
+   - Implement trial boundary transitions
+   - Add trial completion metrics
+   - Update progress tracking
+
+4. Controller Logic
    - Capture loop needs phase-based control
    - Trial count overflow needs bounds checking
    - Implement capture phase gating
    - Add trial bounds validation
 
-4. Backend Operations
+5. Backend Operations
    - StateManager validates all transitions
    - Controllers handle stateless data recording
    - Clean API contracts for frontend consumption
@@ -46,9 +52,9 @@
 
 ## Success Criteria
 - Complete state vector validation ✓
-- Zero sync errors in response-capture chain
-- Proper digit sequence generation per trial
+- Zero sync errors in response-capture chain ✓
+- Proper digit sequence generation per trial ✓
+- Trial completion logic
 - Smooth trial progression
 - Reliable media operations
-- Comprehensive error recovery
 - Performance metrics within spec

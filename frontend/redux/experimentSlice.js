@@ -42,7 +42,7 @@ const experimentSlice = createSlice({
         targetSwitches: null,
         actualSwitches: null,
         effortLevel: null,
-        number: null
+        sequence: []
       }
     },
     trials: [],
@@ -63,11 +63,6 @@ const experimentSlice = createSlice({
       captureSync: false,
       validationState: null
     },
-    numberProgress: {
-      currentIndex: 0,
-      currentNumber: null,
-      completedNumbers: []
-    },
     captureState: {
       lastCaptureTrial: 0,
       isProcessing: false
@@ -75,31 +70,47 @@ const experimentSlice = createSlice({
   },
   reducers: {
     updateTrialState: (state, action) => {
-      console.log('Trial State Update:', {
-        currentDigit: action.payload.currentDigit,
-        newPhase: action.payload.phase,
-        oldDigit: state.trialState.currentDigit,
-        oldPhase: state.trialState.phase
-      });
-
+      console.log('Reducer received action:', action.payload);
+      
       if (action.payload.experimentId) {
         state.experimentId = action.payload.experimentId;
+        state.trialState.currentDigit = action.payload.currentDigit;
+        state.trialState.trialNumber = action.payload.trialNumber - 1;
       }
+      // Handle digit progression within trials
+    if (action.payload.phase === 'trial-start') {
+    // Check completion first
+    if (state.trialState.trialNumber > state.trials.length - 1) {
+      state.trialState.phase = 'complete';
+      state.isComplete = true;
+      return;
+    }
 
-      state.trialState = {
-        ...state.trialState,
-        currentDigit: action.payload.digit ?? action.payload.currentDigit ?? state.trialState.currentDigit,
-        trialNumber: action.payload.trialNumber ?? state.trialState.trialNumber,
-        digitIndex: action.payload.digitIndex ?? state.trialState.digitIndex,
-        phase: action.payload.phase,
-        metadata: {
+    const currentTrial = state.trials[state.trialState.trialNumber];
+    if (currentTrial) {
+      const nextDigitIndex = state.trialState.digitIndex + 1;
+      
+      if (nextDigitIndex >= currentTrial.number.length) {
+        // Move to next trial
+        state.trialState.trialNumber += 1;
+        state.trialState.digitIndex = 0;
+        state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
+      } else {
+        // Next digit in current trial
+        state.trialState.digitIndex = nextDigitIndex;
+        state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
+      }
+    }
+  }
+
+      state.trialState.phase = action.payload.phase;
+      
+      if (action.payload.metadata) {
+        state.trialState.metadata = {
           ...state.trialState.metadata,
-          number: action.payload.metadata?.number ?? state.trialState.metadata.number,
-          effortLevel: action.payload.metadata?.effortLevel ?? state.trialState.metadata.effortLevel,
-          targetSwitches: action.payload.metadata?.targetSwitches ?? state.trialState.metadata.targetSwitches,
-          actualSwitches: action.payload.metadata?.actualSwitches ?? state.trialState.metadata.actualSwitches
-        }
-      };
+          ...action.payload.metadata
+        };
+      }
 
       state.stateVector = {
         lastUpdate: Date.now(),
@@ -107,15 +118,6 @@ const experimentSlice = createSlice({
         captureSync: action.payload.captureSync || false,
         validationState: action.payload.validationState
       };
-
-      if (action.payload.trialNumber !== state.trialState.trialNumber) {
-        state.responses.captureTriggered = false;
-        if (state.trialState.metadata.number) {
-          state.numberProgress.completedNumbers.push(state.trialState.metadata.number);
-        }
-        state.numberProgress.currentNumber = action.payload.metadata?.number ?? null;
-        state.numberProgress.currentIndex = 0;
-      }
     },
 
     queueResponse: (state, action) => {
