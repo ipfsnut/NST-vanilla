@@ -3,11 +3,10 @@ import { useDispatch, useSelector } from 'react-redux';
 import {
   updateTrialState,
   setTrials,
-  setTransitioning,
-  setCaptureRequested,
+  queueResponse,
+  processResponseQueue,
   setComplete
 } from '../redux/experimentSlice';
-import { incrementResponseCount } from '../redux/captureSlice';
 import { API_CONFIG } from '../config/api';
 import StartScreen from './StartScreen';
 import DigitDisplay from './DigitDisplay';
@@ -17,54 +16,44 @@ import ResultsView from './ResultsView';
 
 const ExperimentController = () => {
   const dispatch = useDispatch();
-  
   const {
     experimentId,
-    currentTrial,
-    currentDigit,
-    phase,
-    digitIndex,
+    trialState,
     trials,
     isComplete,
-    isTransitioning,
-    captureRequested
+    responses
   } = useSelector(state => state.experiment);
-  const { responseCount } = useSelector(state => state.capture);
 
-  const shouldCaptureImage = useCallback((count) => {
-    const capturePoints = [0, 2, 5, 8, 11, 14];
-    return capturePoints.includes(count) && !captureRequested;
-  }, [captureRequested]);
+  const shouldCaptureImage = useCallback(() => {
+    return trialState.trialNumber % 3 === 0;
+  }, [trialState.trialNumber]);
 
-  // Debug logging
+  // Core state logging
   useEffect(() => {
-    console.log('Experiment state:', {
-      phase,
+    console.log('Experiment state update:', {
+      phase: trialState.phase,
       experimentId,
-      currentTrial,
-      currentDigit,
+      trialNumber: trialState.trialNumber,
+      currentDigit: trialState.currentDigit,
       trialsCount: trials.length
     });
-  }, [phase, experimentId, currentTrial, currentDigit, trials]);
+  }, [trialState, experimentId, trials]);
 
-  // Capture check
+  // Simplified capture effect
   useEffect(() => {
-    console.log('Capture check:', {
-      responseCount,
-      captureRequested,
-      shouldCapture: shouldCaptureImage(responseCount)
-    });
-    
-    if (shouldCaptureImage(responseCount)) {
-      dispatch(setCaptureRequested(true));
+    if (trialState.phase === 'running' && trialState.trialNumber % 3 === 0) {
+      console.log('Capture check:', {
+        trialNumber: trialState.trialNumber,
+        phase: trialState.phase
+      });
+      dispatch(processResponseQueue());
     }
-  }, [responseCount, captureRequested, dispatch, shouldCaptureImage]);
+  }, [trialState.phase, trialState.trialNumber, dispatch]);
 
   // Session initialization
   useEffect(() => {
     const initializeSession = async () => {
-      if (phase === 'initializing' && !experimentId) {
-        dispatch(setTransitioning(true));
+      if (trialState.phase === 'initializing' && !experimentId) {
         try {
           const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.START}`, {
             method: 'POST',
@@ -78,79 +67,77 @@ const ExperimentController = () => {
           dispatch(setTrials(experimentData.trials));
           dispatch(updateTrialState({
             experimentId: experimentData.experimentId,
-            currentDigit: experimentData.currentDigit,
-            currentTrial: 0,
+            ...experimentData.trialState,
             phase: 'running'
           }));
         } catch (error) {
           console.error('Initialization error:', error);
           dispatch(updateTrialState({ phase: 'error' }));
         }
-        setTimeout(() => dispatch(setTransitioning(false)), 500);
       }
     };
 
-    if (phase === 'start') {
+    if (trialState.phase === 'start') {
       dispatch(updateTrialState({ phase: 'initializing' }));
-    } else if (phase === 'initializing') {
+    } else if (trialState.phase === 'initializing') {
       initializeSession();
     }
-  }, [phase, experimentId, dispatch]);
+  }, [trialState.phase, experimentId, dispatch]);
 
+  // Simplified trial progression
   const startNextTrial = useCallback(async () => {
-    console.log('Starting next trial:', { currentTrial, trialsCount: trials.length });
-    dispatch(setTransitioning(true));
+    console.log('Starting next trial:', { 
+      currentTrial: trialState.trialNumber,
+      totalTrials: trials.length 
+    });
     
     try {
-      const trialState = await fetch(
+      const trialStateResponse = await fetch(
         `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRIAL_STATE}?experimentId=${experimentId}`
       );
-      const data = await trialState.json();
+      const data = await trialStateResponse.json();
       
       dispatch(updateTrialState({
-        currentDigit: data.currentDigit,
-        currentTrial: data.trialState.trialNumber,
-        digitIndex: 0,
+        ...data.trialState,
+        trialNumber: trialState.trialNumber + 1,
         phase: 'trial-start'
       }));
     } catch (error) {
       console.error('Trial state error:', error);
       dispatch(updateTrialState({ phase: 'error' }));
     }
-    setTimeout(() => dispatch(setTransitioning(false)), 500);
-  }, [currentTrial, trials.length, experimentId, dispatch]);
+  }, [trialState.trialNumber, trials.length, experimentId, dispatch]);
 
-  // Trial phase transition
+  // Clean phase transition
   useEffect(() => {
-    if (phase === 'trial-start') {
+    if (trialState.phase === 'trial-start') {
       dispatch(updateTrialState({ phase: 'running' }));
     }
-  }, [phase, dispatch]);
+  }, [trialState.phase, dispatch]);
 
   return (
-    <div className={`experiment-wrapper ${isTransitioning ? 'fade' : ''}`}>
-      {phase === 'start' && <StartScreen />}
+    <div className="experiment-wrapper">
+      {trialState.phase === 'start' && <StartScreen />}
       
-      {(phase === 'running' || phase === 'awaiting-response') && !isComplete && (
+      {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (
         <>
           <DigitDisplay />
           {experimentId && trials.length > 0 && (
             <>
               <ResponseHandler
                 experimentId={experimentId}
-                currentDigit={currentDigit}
                 onResponseComplete={startNextTrial}
               />
               <CameraCapture
                 experimentId={experimentId}
-                shouldCapture={shouldCaptureImage(responseCount)}
+                shouldCapture={trialState.trialNumber % 3 === 0}
               />
             </>
           )}
         </>
       )}
       
-      {phase === 'complete' && (
+      {trialState.phase === 'complete' && (
         <ResultsView
           experimentId={experimentId}
           onExportComplete={() => {
@@ -160,7 +147,7 @@ const ExperimentController = () => {
         />
       )}
       
-      {phase === 'error' && (
+      {trialState.phase === 'error' && (
         <div className="error-message">
           An error occurred. Please restart the experiment.
         </div>

@@ -63,26 +63,6 @@ router.get('/progress', nstController.getProgress);
 router.get('/results', nstController.getResults);
 
 /**
- * @route PUT /api/session/pause
- * @desc Pause active experiment
- * @state ANY
- * @vision NSTvision.txt:Session Management:PUT /session/pause
- * @triggers SessionControl pause operation
- * @returns {Object} sessionStatus, pauseTimestamp
- */
-router.put('/session/pause', nstController.pauseSession);
-
-/**
- * @route PUT /api/session/resume
- * @desc Resume paused experiment
- * @state PAUSED
- * @vision NSTvision.txt:Session Management:PUT /session/resume
- * @triggers Session reactivation
- * @returns {Object} sessionStatus, resumeTimestamp
- */
-router.put('/session/resume', nstController.resumeSession);
-
-/**
  * @route PUT /api/session/abort
  * @desc Terminate experiment early
  * @state ANY

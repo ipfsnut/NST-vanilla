@@ -1,19 +1,26 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { API_CONFIG } from '../config/api';
-import { addResponse, updateTrialState } from '../redux/experimentSlice';
+import { queueResponse, updateTrialState } from '../redux/experimentSlice';
 
-
-const ResponseHandler = ({ experimentId, currentDigit, onResponseComplete }) => {
+const ResponseHandler = ({ experimentId, onResponseComplete }) => {
   const dispatch = useDispatch();
-  const { phase } = useSelector(state => state.experiment);
+  const { phase } = useSelector(state => state.experiment.trialState);
+  const { currentDigit } = useSelector(state => state.experiment.trialState);
+  const { queue } = useSelector(state => state.experiment.responses);
 
   const validateResponse = (key, digit) => {
     const isOdd = digit % 2 === 1;
-    return {
+    const validation = {
       isCorrect: (key === 'f' && isOdd) || (key === 'j' && !isOdd),
       responseType: key === 'f' ? 'odd' : 'even'
     };
+    console.log('Response validation:', {
+      key,
+      digit,
+      isOdd,
+      validation
+    });
+    return validation;
   };
 
   const handleKeyPress = async (event) => {
@@ -22,39 +29,25 @@ const ResponseHandler = ({ experimentId, currentDigit, onResponseComplete }) => 
     const validation = validateResponse(event.key, currentDigit);
     console.log('Response validation:', validation);
 
-    try {
-      const response = await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          experimentId,
-          response: event.key,
-          responseType: validation.responseType,
-          digit: currentDigit,
-          isCorrect: validation.isCorrect,
-          timestamp: Date.now()
-        })
-      });
+    dispatch(queueResponse({
+      experimentId,
+      response: event.key,
+      responseType: validation.responseType,
+      digit: currentDigit,
+      isCorrect: validation.isCorrect,
+      timestamp: Date.now()
+    }));
 
-      const data = await response.json();
-      if (data.success) {
-        dispatch(addResponse({
-          key: event.key,
-          digit: currentDigit,
-          isCorrect: validation.isCorrect,
-          timestamp: Date.now()
-        }));
-        onResponseComplete();
-      }
-    } catch (error) {
-      console.error('Response processing error:', error);
+    if (queue.length >= 10 || validation.isCorrect) {
+      dispatch(updateTrialState({ phase: 'awaiting-response' }));
+      onResponseComplete();
     }
   };
 
   React.useEffect(() => {
     window.addEventListener('keypress', handleKeyPress);
     return () => window.removeEventListener('keypress', handleKeyPress);
-  }, [currentDigit, experimentId, phase, dispatch, onResponseComplete]);
+  }, [currentDigit, experimentId, phase, queue.length]);
 
   return null;
 };

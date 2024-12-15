@@ -1,8 +1,22 @@
+const VALID_STATES = ['INIT', 'RUNNING', 'TRIAL_START', 'AWAIT_RESPONSE', 'COMPLETE', 'ABORTED'];
+const VALID_TRANSITIONS = {
+  'INIT': ['RUNNING'],
+  'RUNNING': ['TRIAL_START', 'ABORTED'],
+  'TRIAL_START': ['AWAIT_RESPONSE'],
+  'AWAIT_RESPONSE': ['TRIAL_START', 'COMPLETE'],
+  'COMPLETE': [],
+  'ABORTED': []
+};
+
 class StateManager {
   constructor() {
     this.sessions = new Map();
     this.captures = new Map();
     this.stateTransitions = new Map();
+  }
+
+  isValidTransition(fromState, toState) {
+    return VALID_TRANSITIONS[fromState]?.includes(toState);
   }
 
   createSession(sessionId, experimentConfig) {
@@ -15,7 +29,7 @@ class StateManager {
         currentDigit: 0,
         trials: experimentConfig.trials,
         responses: [],
-        status: 'RUNNING'
+        status: 'INIT'
       }
     };
 
@@ -51,30 +65,24 @@ class StateManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    const previousState = {...session.state};
-    const transitionTimestamp = Date.now();
+    if (updates.phase === 'trial-start') {
+      session.state.currentTrial++;
+      session.state.currentDigit = 0;
+    }
 
     session.state = {
       ...session.state,
       ...updates,
-      lastActivity: transitionTimestamp
+      lastActivity: Date.now()
     };
-
-    const transitions = this.stateTransitions.get(sessionId);
-    transitions.push({
-      from: previousState,
-      to: session.state,
-      timestamp: transitionTimestamp
-    });
 
     console.log('State update:', {
       sessionId,
-      previousState,
-      updates,
-      newState: session.state
+      currentTrial: session.state.currentTrial,
+      phase: session.state.phase
     });
 
-    return session.state;
+    return session;
   }
 
   recordResponse(sessionId, responseData) {

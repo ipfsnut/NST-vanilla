@@ -1,21 +1,21 @@
+const path = require('path');
 const { generateTrialNumbers } = require('../utils/markovChain');
 const MediaHandler = require('../services/mediaHandler');
+const mediaHandler = new MediaHandler(path.join(process.cwd(), 'uploads'));
 const stateManager = require('../services/stateManager');
 const { createAndDownloadZip } = require('../utils/zipCreator');
 const config = require('../config');
 
-const mediaHandler = new MediaHandler();
-
-
-// Session Management Controllers
+// Core Session Management
 const startSession = async (req, res) => {
   try {
     const experimentId = Date.now().toString();
     const trials = await generateTrialNumbers(config.experimentConfig);
-
-    console.log('Starting session:', {
-      experimentId,
-      trialCount: trials.length
+    
+    console.log('Generated trials[0]:', {
+      number: trials[0].number,
+      firstDigit: trials[0].number[0],
+      metadata: trials[0].metadata
     });
 
     const session = await stateManager.createSession(experimentId, {
@@ -24,34 +24,55 @@ const startSession = async (req, res) => {
       config: config.experimentConfig
     });
     
-    console.log('Session created:', {
-      id: experimentId,
-      stored: await stateManager.getSessionState(experimentId)
+    console.log('Session created with initial trial state:', {
+      currentTrial: session.state.currentTrial,
+      currentDigit: session.state.currentDigit
     });
 
-    await stateManager.createSession(experimentId, {
-      type: 'nst',
-      trials,
-      config: config.experimentConfig
-    });
-
+    await stateManager.updateSessionState(experimentId, { status: 'RUNNING' });
+    
     const initialState = {
-      currentDigit: trials[0].number[0],
-      trials,
+      trialState: {
+        currentDigit: trials[0].number[0],
+        trialNumber: 1,
+        digitIndex: 0,
+        phase: 'start',
+        metadata: {
+          targetSwitches: trials[0].metadata.targetSwitches,
+          actualSwitches: trials[0].metadata.actualSwitches,
+          effortLevel: trials[0].effortLevel,
+          sequence: trials[0].number
+        }
+      },
       experimentId,
-      sequence: trials[0].number
+      trials
     };
+
+    console.log('Sending initial state to frontend:', {
+      currentDigit: initialState.trialState.currentDigit,
+      trialNumber: initialState.trialState.trialNumber
+    });
+
     res.json(initialState);
   } catch (error) {
     console.error('Start session error:', error);
     res.status(500).json({ error: error.message });
   }
 };
+const abortSession = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    await stateManager.updateSessionState(sessionId, { status: 'ABORTED' });
+    res.json({ status: 'ABORTED', endTime: Date.now() });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
+// State Management
 const getExperimentState = async (req, res) => {
   try {
-    const { experimentId, type } = req.query;
-    console.log(`Getting ${type} state for experiment: ${experimentId}`);
+    const { experimentId } = req.query;
     const state = await stateManager.getSessionState(experimentId);
     res.json({ state });
   } catch (error) {
@@ -59,93 +80,6 @@ const getExperimentState = async (req, res) => {
   }
 };
 
-const getTrialState = async (req, res) => {
-  try {
-    const { experimentId } = req.query;
-    const session = await stateManager.getSessionState(experimentId);
-    const currentTrial = session.state.trials[session.state.currentTrial];
-    
-    res.json({
-      currentDigit: currentTrial.sequence[session.state.currentDigit],
-      trialState: {
-        position: session.state.currentDigit,
-        trialNumber: session.state.currentTrial,
-        isLastDigit: session.state.currentDigit >= currentTrial.sequence.length - 1,
-        totalDigits: currentTrial.sequence.length,
-        effortLevel: currentTrial.effortLevel
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
-const getProgress = async (req, res) => {
-  try {
-    const { experimentId } = req.query;
-    const session = await stateManager.getSessionState(experimentId);
-    
-    res.json({
-      completedTrials: session.state.currentTrial,
-      totalTrials: session.state.trials.length,
-      currentLevel: session.state.trials[session.state.currentTrial].effortLevel
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const getResults = async (req, res) => {
-  try {
-    const session = await stateManager.getSessionState(req.params.sessionId);
-    res.json({
-      trials: session.state.trials,
-      responses: session.state.responses,
-      metadata: {
-        startTime: session.startTime,
-        lastActivity: session.lastActivity
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const pauseSession = async (req, res) => {
-  try {
-    const session = await stateManager.getSessionState(req.params.sessionId);
-    session.state.status = 'PAUSED';
-    session.lastActivity = Date.now();
-    res.json({ status: 'PAUSED', pauseTime: session.lastActivity });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const resumeSession = async (req, res) => {
-  try {
-    const session = await stateManager.getSessionState(req.params.sessionId);
-    session.state.status = 'RUNNING';
-    session.lastActivity = Date.now();
-    res.json({ status: 'RUNNING', resumeTime: session.lastActivity });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-const abortSession = async (req, res) => {
-  try {
-    const session = await stateManager.getSessionState(req.params.sessionId);
-    session.state.status = 'ABORTED';
-    session.lastActivity = Date.now();
-    res.json({ status: 'ABORTED', endTime: session.lastActivity });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-// State Management Controllers
 const getSessionStatus = async (req, res) => {
   try {
     const status = await stateManager.getSessionState(req.params.id);
@@ -157,45 +91,58 @@ const getSessionStatus = async (req, res) => {
 
 const requestStateTransition = async (req, res) => {
   try {
-    const newState = await stateManager.transitionState(req.params.id, req.body.targetState);
+    const newState = await stateManager.updateSessionState(req.params.id, { 
+      status: req.body.targetState 
+    });
     res.json(newState);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
 };
 
-// Error Handling Controllers
-const reportError = async (req, res) => {
+// Trial Management
+const getTrialState = async (req, res) => {
   try {
-    const session = await stateManager.getSessionState(req.params.id);
-    session.state.errors = session.state.errors || [];
-    session.state.errors.push({
-      error: req.body.error,
-      timestamp: Date.now()
-    });
-    res.json({ status: 'error_logged' });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
+    const { experimentId } = req.query;
+    const session = await stateManager.getSessionState(experimentId);
+    
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
 
-const getRecoveryInstructions = async (req, res) => {
-  try {
-    const session = await stateManager.getSessionState(req.params.id);
+    const currentTrialIndex = session.state.currentTrial;
+    const currentTrial = session.state.trials[currentTrialIndex];
+
+    console.log('Trial state request:', {
+      experimentId,
+      currentTrialIndex,
+      hasCurrentTrial: !!currentTrial
+    });
+    
     res.json({
-      instructions: 'Resume from last valid state',
-      lastValidState: session.state.currentTrial
+      trialState: {
+        currentDigit: currentTrial.number[session.state.currentDigit],
+        trialNumber: currentTrialIndex + 1,
+        digitIndex: session.state.currentDigit,
+        phase: session.state.phase,
+        metadata: {
+          effortLevel: currentTrial.effortLevel,
+          sequence: currentTrial.number,
+          targetSwitches: currentTrial.metadata.targetSwitches,
+          actualSwitches: currentTrial.metadata.actualSwitches
+        }
+      }
     });
   } catch (error) {
+    console.error('Trial state error:', error);
     res.status(500).json({ error: error.message });
   }
 };
-
-// Trial Management Controllers
 const createTrial = async (req, res) => {
   try {
     const trial = await generateTrialNumbers(config.experimentConfig);
-    res.json(trial[0]); // Return single trial
+    await stateManager.updateSessionState(req.params.id, { status: 'TRIAL_START' });
+    res.json(trial[0]);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -210,6 +157,8 @@ const getNextDigit = async (req, res) => {
     const session = await stateManager.getSessionState(experimentId);
     const currentTrial = session.state.trials[session.state.currentTrial];
     
+    await stateManager.updateSessionState(experimentId, { status: 'TRIAL_START' });
+    
     res.json({
       digit: currentTrial.sequence[session.state.currentDigit],
       metadata: {
@@ -222,42 +171,47 @@ const getNextDigit = async (req, res) => {
   }
 };
 
+// Response Handling
 const submitResponse = async (req, res) => {
   try {
-    const { experimentId, response, isCorrect, digit } = req.body;
+    const { experimentId, responses } = req.body;
     const session = await stateManager.getSessionState(experimentId);
     
     if (!session) {
       return res.status(404).json({ error: 'Session not found' });
     }
 
-    // Just store the response
-    await stateManager.recordResponse(experimentId, {
-      response,
-      isCorrect,
-      digit,
-      timestamp: Date.now()
+    await stateManager.updateSessionState(experimentId, { status: 'AWAIT_RESPONSE' });
+    
+    const processedResponses = await Promise.all(
+      responses.map(async response => {
+        await stateManager.recordResponse(experimentId, {
+          ...response,
+          timestamp: response.timestamp || Date.now()
+        });
+        return response;
+      })
+    );
+
+    res.json({ 
+      success: true,
+      processed: processedResponses.length
     });
-
-    res.json({ success: true });
-
   } catch (error) {
     console.error('Response storage error:', error);
     res.status(500).json({ error: error.message });
   }
 };
 
-// Capture Control Controllers
+// Media Handling
 const submitCapture = async (req, res) => {
   try {
     const { experimentId, trialNumber, captureData } = req.body;
-    // Save to filesystem via MediaHandler
     const fileResult = await mediaHandler.saveTrialCapture(
       experimentId,
-      trialNumber, 
+      trialNumber,
       captureData
     );
-    // Update state via StateManager
     await stateManager.addCapture(experimentId, {
       ...fileResult,
       trialNumber
@@ -273,6 +227,24 @@ const submitCapture = async (req, res) => {
   }
 };
 
+const getSessionCaptures = async (req, res) => {
+  try {
+    const { sessionId } = req.params;
+    const captures = await stateManager.getSessionCaptures(sessionId);
+    res.json({
+      captures,
+      metadata: {
+        sessionId,
+        timestamp: Date.now(),
+        count: captures.length
+      }
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+// Configuration
 const getCaptureConfig = async (req, res) => {
   try {
     res.json({
@@ -285,7 +257,6 @@ const getCaptureConfig = async (req, res) => {
   }
 };
 
-// Configuration Controllers
 const getNSTConfig = async (req, res) => {
   try {
     res.json(config.experimentConfig);
@@ -303,7 +274,7 @@ const updateNSTConfig = async (req, res) => {
   }
 };
 
-
+// Data Export
 const exportSessionData = async (req, res) => {
   try {
     const { sessionId } = req.params;
@@ -326,24 +297,6 @@ const exportSessionData = async (req, res) => {
   }
 };
 
-const getSessionCaptures = async (req, res) => {
-  try {
-    const { sessionId } = req.params;
-    const state = await stateManager.getSessionState(sessionId);
-    res.json({
-      captures: state.capture.captures,
-      metadata: {
-        sessionId,
-        timestamp: Date.now(),
-        count: state.capture.captures.length
-      }
-    });
-  } catch (error) {
-    res.status(500).json({ error: error.message });
-  }
-};
-
-
 const validateExportData = async (req, res) => {
   try {
     const validation = await mediaHandler.validateCapture(req.body);
@@ -361,28 +314,115 @@ const validateExportData = async (req, res) => {
   }
 };
 
+// Error Handling
+const reportError = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await stateManager.getSessionState(id);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    await stateManager.updateSessionState(id, {
+      lastError: {
+        message: req.body.error,
+        timestamp: Date.now()
+      }
+    });
+    res.json({ status: 'error_logged' });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getResults = async (req, res) => {
+  try {
+    const { experimentId } = req.query;
+    const session = await stateManager.getSessionState(experimentId);
+    
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    if (session.state.status !== 'COMPLETE') {
+      return res.status(400).json({ error: 'Session not yet complete' });
+    }
+
+    const results = {
+      trialData: session.state.trials,
+      responses: session.state.responses,
+      captures: session.state.captures || [],
+      metrics: {
+        totalTrials: session.state.trials.length,
+        completedTrials: session.state.currentTrial,
+        startTime: session.startTime,
+        endTime: session.lastActivity
+      }
+    };
+
+    res.json(results);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getRecoveryInstructions = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const session = await stateManager.getSessionState(id);
+    if (!session) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+    res.json({
+      instructions: 'Resume from last valid state',
+      lastValidState: session.state.currentTrial
+    });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+const getProgress = async (req, res) => {
+  try {
+    const { experimentId } = req.query;
+    const state = await stateManager.getSessionState(experimentId);
+    
+    if (!state) {
+      return res.status(404).json({ error: 'Session not found' });
+    }
+
+    const progress = {
+      currentTrial: state.state.currentTrial,
+      totalTrials: state.state.trials.length,
+      status: state.state.status,
+      percentComplete: Math.round((state.state.currentTrial / state.state.trials.length) * 100),
+      lastActivity: state.lastActivity
+    };
+
+    res.json({ progress });
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
 
 module.exports = {
   startSession,
   getExperimentState,
   getTrialState,
   getProgress,
-  getResults,
-  pauseSession,
-  resumeSession,
   abortSession,
   getSessionStatus,
   requestStateTransition,
-  reportError,
-  getRecoveryInstructions,
   createTrial,
   getNextDigit,
   submitResponse,
   submitCapture,
   getCaptureConfig,
   getNSTConfig,
+  getResults,
+  updateNSTConfig,
   exportSessionData,
   getSessionCaptures,
   validateExportData,
-  updateNSTConfig
+  reportError,
+  getRecoveryInstructions
 };
