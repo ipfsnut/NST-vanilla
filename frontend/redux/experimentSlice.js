@@ -1,10 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { API_CONFIG } from '../config/api';
 
-// Simplified middleware for handling response queue processing
 export const responseQueueMiddleware = store => next => action => {
   const result = next(action);
-  
   if (action.type === 'experiment/processResponseQueue') {
     const state = store.getState().experiment;
     if (state.responses.queue.length > 0) {
@@ -12,11 +10,9 @@ export const responseQueueMiddleware = store => next => action => {
         .then(() => store.dispatch(completeResponseProcessing()));
     }
   }
-  
   return result;
 };
 
-// Async response processing
 const processResponses = async (responses, experimentId) => {
   try {
     await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
@@ -46,7 +42,7 @@ const experimentSlice = createSlice({
         targetSwitches: null,
         actualSwitches: null,
         effortLevel: null,
-        sequence: []
+        number: null
       }
     },
     trials: [],
@@ -67,6 +63,11 @@ const experimentSlice = createSlice({
       captureSync: false,
       validationState: null
     },
+    numberProgress: {
+      currentIndex: 0,
+      currentNumber: null,
+      completedNumbers: []
+    },
     captureState: {
       lastCaptureTrial: 0,
       isProcessing: false
@@ -80,7 +81,7 @@ const experimentSlice = createSlice({
         oldDigit: state.trialState.currentDigit,
         oldPhase: state.trialState.phase
       });
-      
+
       if (action.payload.experimentId) {
         state.experimentId = action.payload.experimentId;
       }
@@ -93,7 +94,10 @@ const experimentSlice = createSlice({
         phase: action.payload.phase,
         metadata: {
           ...state.trialState.metadata,
-          ...action.payload.metadata
+          number: action.payload.metadata?.number ?? state.trialState.metadata.number,
+          effortLevel: action.payload.metadata?.effortLevel ?? state.trialState.metadata.effortLevel,
+          targetSwitches: action.payload.metadata?.targetSwitches ?? state.trialState.metadata.targetSwitches,
+          actualSwitches: action.payload.metadata?.actualSwitches ?? state.trialState.metadata.actualSwitches
         }
       };
 
@@ -104,9 +108,13 @@ const experimentSlice = createSlice({
         validationState: action.payload.validationState
       };
 
-      // Reset captureTriggered when moving to next trial
       if (action.payload.trialNumber !== state.trialState.trialNumber) {
         state.responses.captureTriggered = false;
+        if (state.trialState.metadata.number) {
+          state.numberProgress.completedNumbers.push(state.trialState.metadata.number);
+        }
+        state.numberProgress.currentNumber = action.payload.metadata?.number ?? null;
+        state.numberProgress.currentIndex = 0;
       }
     },
 
@@ -148,6 +156,7 @@ const experimentSlice = createSlice({
     }
   }
 });
+
 export const {
   updateTrialState,
   queueResponse,

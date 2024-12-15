@@ -29,11 +29,12 @@ const ExperimentController = () => {
   const dispatch = useDispatch();
   // Core state selectors
   const {
-    experimentId,    // Unique session identifier from backend
-    trialState,      // Current trial phase and metadata
-    trials,          // Full sequence of trials
-    isComplete,      // Experiment completion flag
-    responses        // Response queue and processing state
+    experimentId,
+    trialState,
+    trials,
+    isComplete,
+    responses,
+    numberProgress
   } = useSelector(state => state.experiment);
 
   // Core state logging
@@ -43,9 +44,10 @@ const ExperimentController = () => {
       experimentId,
       trialNumber: trialState.trialNumber,
       currentDigit: trialState.currentDigit,
-      trialsCount: trials.length
+      trialsCount: trials.length,
+      numberIndex: numberProgress.currentIndex
     });
-  }, [trialState, experimentId, trials]);
+  }, [trialState, experimentId, trials, numberProgress]);
 
  /**
    * Capture Effect
@@ -115,28 +117,28 @@ const ExperimentController = () => {
    * Updates digit display and trial metadata
    */
   const startNextTrial = useCallback(async () => {
-    console.log('Starting next trial:', { 
-      currentTrial: trialState.trialNumber,
-      totalTrials: trials.length 
-    });
+    const currentTrial = trials[trialState.trialNumber];
+    const currentNumber = currentTrial.number;
+    const nextDigitIndex = (trialState.digitIndex + 1) % currentNumber.length;
     
-    try {
-      const trialStateResponse = await fetch(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.TRIAL_STATE}?experimentId=${experimentId}`
-      );
-      const data = await trialStateResponse.json();
-      
+    if (nextDigitIndex === 0) {
+      // Move to next trial when we've shown all digits
       dispatch(updateTrialState({
-        ...data.trialState,
         trialNumber: trialState.trialNumber + 1,
+        digitIndex: 0,
+        currentDigit: trials[trialState.trialNumber + 1].number[0],
         phase: 'trial-start'
       }));
-    } catch (error) {
-      console.error('Trial state error:', error);
-      dispatch(updateTrialState({ phase: 'error' }));
+    } else {
+      // Show next digit in current trial
+      dispatch(updateTrialState({
+        digitIndex: nextDigitIndex,
+        currentDigit: currentNumber[nextDigitIndex],
+        phase: 'trial-start'
+      }));
     }
-  }, [trialState.trialNumber, trials.length, experimentId, dispatch]);
-
+  }, [trialState, trials, dispatch]);
+  
    /**
    * Phase Transition Effect
    * Manages clean transitions between trial states
