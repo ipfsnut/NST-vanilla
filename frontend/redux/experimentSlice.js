@@ -3,31 +3,36 @@ import { API_CONFIG } from '../config/api';
 
 export const responseQueueMiddleware = store => next => action => {
   const result = next(action);
-  if (action.type === 'experiment/processResponseQueue') {
+  if (action.type === 'experiment/queueResponse') {
     const state = store.getState().experiment;
-    if (state.responses.queue.length > 0) {
-      processResponses(state.responses.queue, state.experimentId)
-        .then(() => store.dispatch(completeResponseProcessing()));
-    }
+    console.log('Response queued:', action.payload);
+    // Process immediately and clear
+    processResponses([action.payload], state.experimentId)
+      .then(() => store.dispatch(completeResponseProcessing()));
   }
   return result;
 };
-
 const processResponses = async (responses, experimentId) => {
   try {
+    const processedResponses = responses.map(response => ({
+      ...response,
+      experimentId,
+      timestamp: response.timestamp || Date.now()
+    }));
+
     await fetch(`${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESPONSE}`, {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
+      credentials: 'include',
       body: JSON.stringify({
         experimentId,
-        responses
+        responses: processedResponses
       })
     });
   } catch (error) {
     console.error('Response processing error:', error);
   }
 };
-
 const experimentSlice = createSlice({
   name: 'experiment',
   initialState: {
@@ -48,9 +53,9 @@ const experimentSlice = createSlice({
     trials: [],
     isComplete: false,
     responses: {
+      byPosition: {}, // Will store responses keyed by `${trialNumber}-${digitIndex}`
       queue: [],
-      lastProcessed: null,
-      captureTriggered: false
+      lastProcessed: null
     },
     captureConfig: {
       enabled: false,
@@ -128,25 +133,22 @@ const experimentSlice = createSlice({
     },
 
     queueResponse: (state, action) => {
-      state.responses.queue.push({
-        ...action.payload,
-        timestamp: Date.now()
-      });
-    },
-
-    processResponseQueue: (state) => {
-      if (!state.captureState.isProcessing && 
-          state.trialState.trialNumber % 3 === 0 && 
-          state.trialState.trialNumber !== state.captureState.lastCaptureTrial) {
-        state.captureState.isProcessing = true;
-        state.captureState.lastCaptureTrial = state.trialState.trialNumber;
+      const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
+      // Only queue if we don't have a response for this position
+      if (!state.responses.byPosition[positionKey]) {
+        state.responses.byPosition[positionKey] = action.payload;
+        state.responses.queue.push(action.payload);
       }
     },
-
+    processResponseQueue: (state) => {
+      if (state.responses.queue.length > 0) {
+        // Queue will only contain unique position responses
+        processResponses(state.responses.queue, state.experimentId);
+      }
+    },
     completeResponseProcessing: (state) => {
       state.responses.queue = [];
       state.responses.lastProcessed = Date.now();
-      state.captureState.isProcessing = false;
     },
 
     updateCaptureConfig: (state, action) => {
@@ -165,7 +167,6 @@ const experimentSlice = createSlice({
     }
   }
 });
-
 export const {
   updateTrialState,
   queueResponse,

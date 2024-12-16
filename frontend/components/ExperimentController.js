@@ -24,6 +24,14 @@ const ExperimentController = () => {
     responses
   } = useSelector(state => state.experiment);
 
+  // Add error handler
+  const handleResponseError = (error) => {
+    dispatch(updateTrialState({ 
+      phase: 'error',
+      error: error.message 
+    }));
+  };
+
   // Core state management and logging
   useEffect(() => {
     console.log('Phase change detected:', trialState.phase);
@@ -40,9 +48,14 @@ const ExperimentController = () => {
   }, [trialState, experimentId]);
   // Capture timing
 useEffect(() => {
+  // Update the capture trigger to check position within trial
+  const shouldTriggerCapture = (digitIndex) => {
+    return (digitIndex + 1) % 3 === 0;
+  };
+
   if (trialState.phase === 'running' && 
       trialState.digitIndex > 0 && 
-      trialState.digitIndex % 3 === 0) {
+      shouldTriggerCapture(trialState.digitIndex)) {
     console.log('Triggering capture at digit:', trialState.digitIndex);
     dispatch(processResponseQueue());
   }
@@ -91,19 +104,21 @@ useEffect(() => {
         <CameraCapture
           experimentId={experimentId}
           shouldCapture={
-            trialState.phase === 'running' && 
-            !responses.captureState?.isProcessing && 
+            trialState.phase === 'running' &&
+            !responses.captureState?.isProcessing &&
             trialState.digitIndex % 3 === 0
           }
         />
       )}
-      
       {trialState.phase === 'start' && <StartScreen />}
       {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (
         <>
           <DigitDisplay />
           {experimentId && trials.length > 0 && (
-            <ResponseHandler experimentId={experimentId} />
+            <ResponseHandler
+              experimentId={experimentId}
+              onError={handleResponseError}
+            />
           )}
         </>
       )}

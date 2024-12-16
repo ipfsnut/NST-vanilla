@@ -85,7 +85,8 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
         body: JSON.stringify({
           experimentId,
           captureData: imageData,
-          timestamp: Date.now()
+          timestamp: Date.now(),
+          settings: CAPTURE_SETTINGS  // Add this line
         })
       })
       .then(() => console.log('Capture completed'))

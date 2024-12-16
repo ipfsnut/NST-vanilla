@@ -106,26 +106,40 @@ class StateManager {
       }
     };
   }  
-
   recordResponse(sessionId, responseData) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    session.state.responses.push({
-      ...responseData,
-      timestamp: Date.now()
-    });
+    // Store response in position-keyed object
+    if (!session.state.responsesByPosition) {
+      session.state.responsesByPosition = {};
+    }
+
+    const positionKey = responseData.positionKey;
+    if (!session.state.responsesByPosition[positionKey]) {
+      session.state.responsesByPosition[positionKey] = responseData;
+      session.state.responses.push(responseData);
+    }
 
     console.log('Response recorded:', {
       sessionId,
-      responseData,
+      positionKey,
       totalResponses: session.state.responses.length
     });
 
     return session.state;
   }
 
-  async addCapture(sessionId, captureData) {
+  getSessionResponses(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
+    
+    return {
+      byPosition: session.state.responsesByPosition || {},
+      ordered: session.state.responses || [],
+      total: session.state.responses?.length || 0
+    };
+  }  async addCapture(sessionId, captureData) {
     const captures = this.captures.get(sessionId) || [];
     const newCapture = {
       timestamp: captureData.metadata.timestamp,

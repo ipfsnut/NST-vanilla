@@ -5,6 +5,8 @@ const mediaHandler = new MediaHandler(path.join(process.cwd(), 'uploads'));
 const stateManager = require('../services/stateManager');
 const { createAndDownloadZip } = require('../utils/zipCreator');
 const config = require('../config');
+const ResultsAggregator = require('../utils/resultsAggregator');
+const resultsAggregator = new ResultsAggregator(stateManager);
 
 // Core Session Management
 /**
@@ -200,6 +202,8 @@ const getNextDigit = async (req, res) => {
  * Frontend needs: experimentId, trialNumber, base64 image data
  * Frontend receives: capture success status, filepath
  */
+const ResponsePipeline = require('../services/ResponsePipeline');
+const responsePipeline = new ResponsePipeline(stateManager, mediaHandler);
 const submitResponse = async (req, res) => {
   try {
     const { experimentId, responses } = req.body;
@@ -211,15 +215,16 @@ const submitResponse = async (req, res) => {
 
     await stateManager.updateSessionState(experimentId, { status: 'AWAIT_RESPONSE' });
     
-    const processedResponses = await Promise.all(
-      responses.map(async response => {
-        await stateManager.recordResponse(experimentId, {
-          ...response,
-          timestamp: response.timestamp || Date.now()
-        });
-        return response;
-      })
-    );
+    const processedResponses = responses.map(response => ({
+      ...response,
+      timestamp: response.timestamp || Date.now(),
+      positionKey: `${response.trialNumber}-${response.position}`
+    }));
+
+    // Record each response in its unique position
+    for (const response of processedResponses) {
+      await stateManager.recordResponse(experimentId, response);
+    }
 
     res.json({ 
       success: true,
@@ -230,7 +235,6 @@ const submitResponse = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 const CAPTURE_SETTINGS = {
   width: 640,
   height: 480,
@@ -349,18 +353,27 @@ const exportSessionData = async (req, res) => {
     const session = await stateManager.getSessionState(sessionId);
     const captures = await stateManager.getSessionCaptures(sessionId);
     
-    // Get full paths for all captures
-    const captureFiles = captures.map(capture => ({
-      filepath: path.join(process.cwd(), 'uploads', capture.filename),
-      metadata: capture.metadata,
-      trialNumber: capture.trialNumber,
-      timestamp: capture.timestamp
-    }));
+    const formattedData = {
+      trials: session.state.trials.map((trial, index) => {
+        const trialResponses = session.state.responses.filter(r => 
+          r.trialNumber === index
+        );
+        return {
+          trialNumber: index + 1,
+          sequence: trial.number,
+          responses: trialResponses
+        };
+      })
+    };
+
+    console.log('Formatted trial data:', {
+      totalResponses: session.state.responses.length,
+      sampleResponses: session.state.responses.slice(0, 3)
+    });
 
     const zipFileName = await createAndDownloadZip({
-      trials: session.state.trials,
-      responses: session.state.responses,
-      captures: captures,
+      experimentData: formattedData,
+      captures,
       metadata: {
         sessionId,
         startTime: session.startTime,
@@ -373,11 +386,10 @@ const exportSessionData = async (req, res) => {
     res.setHeader('Content-Disposition', `attachment; filename=nst-session-${sessionId}.zip`);
     res.sendFile(zipFileName);
   } catch (error) {
+    console.error('Export error:', error);
     res.status(500).json({ error: error.message });
   }
-};
-
-const validateExportData = async (req, res) => {
+};const validateExportData = async (req, res) => {
   try {
     const validation = await mediaHandler.validateCapture(req.body);
     res.json({
@@ -491,24 +503,33 @@ const getProgress = async (req, res) => {
 };
 
 const exportFormatters = require('../utils/exportFormatters');
-
 const exportResults = async (req, res) => {
   try {
-    const { experimentId, format = 'json' } = req.query;
-    const results = await resultsAggregator.getFullResults(experimentId);
+    const { sessionId } = req.params;
+    const session = await stateManager.getSessionState(sessionId);
     
-    const formattedData = format === 'csv' 
-      ? exportFormatters.formatCSV(results)
-      : exportFormatters.formatJSON(results);
+    const formattedData = exportFormatters.formatCSV({
+      trials: session.state.trials.map((trial, index) => ({
+        trialNumber: index + 1,
+        sequence: trial.number,
+        responses: session.state.responses.filter(r => r.trialNumber === index + 1).map(response => ({
+          digit: response.digit,
+          keyPressed: response.key,
+          isCorrect: response.isCorrect,
+          timestamp: response.timestamp,
+          responseTime: response.timing
+        }))
+      }))
+    });
     
-    res.setHeader('Content-Disposition', `attachment; filename=nst-results-${experimentId}.${format}`);
+    res.setHeader('Content-Type', 'text/csv');
+    res.setHeader('Content-Disposition', `attachment; filename=nst-results-${sessionId}.csv`);
     res.send(formattedData);
   } catch (error) {
+    console.error('Export error:', error);
     res.status(500).json({ error: error.message });
   }
 };
-
-
 module.exports = {
   startSession,
   getExperimentState,
@@ -532,3 +553,5 @@ module.exports = {
   getRecoveryInstructions,
   exportResults
 };
+
+

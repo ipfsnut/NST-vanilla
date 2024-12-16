@@ -1,30 +1,73 @@
 class ResponsePipeline {
-  constructor(platformService, mediaHandler) {
-    this.platformService = platformService;
+  constructor(stateManager, mediaHandler) {
+    this.stateManager = stateManager;
     this.mediaHandler = mediaHandler;
-    this.boundaryContract = {
-      allowedMethods: ['processResponse', 'validateResponse', 'aggregateResults'],
-      responsibilities: 'Response handling and data aggregation'
+  }
+
+  async processResponse(experimentId, sessionId, responseData) {
+    const validatedResponse = await this.validateResponse(responseData);
+    const sessionState = await this.stateManager.getSessionState(sessionId);
+    
+    // Process each response with position validation
+    const processedResponses = responseData.responses.map(response => {
+      const positionKey = `${response.trialNumber}-${response.position}`;
+      return {
+        ...response,
+        positionKey,
+        timestamp: response.timestamp,
+        validated: true
+      };
+    });
+
+    return {
+      response: {
+        isValid: true,
+        processedData: processedResponses
+      },
+      sessionState: sessionState.state,
+      timestamp: Date.now()
     };
   }
 
-  async validateVectorAlignment(stateVector) {
-    const { experimentState, captureState, responseState } = stateVector;
+  async validateResponse(responseData) {
+    const { positionKey, trialNumber, position, digit } = responseData;
     
+    // Validate position format
+    if (!positionKey || !positionKey.match(/^\d+-\d+$/)) {
+      throw new Error(`Invalid position key: ${positionKey}`);
+    }
+
+    // Validate trial bounds
+    if (trialNumber < 0 || trialNumber > 13) {
+      throw new Error(`Trial number out of bounds: ${trialNumber}`);
+    }
+
+    // Validate digit position
+    if (position < 0 || position > 14) {
+      throw new Error(`Position out of bounds: ${position}`);
+    }
+
     return {
-      isAligned: experimentState.currentTrial === responseState.length,
-      captureSync: captureState.length === responseState.length,
-      timestamp: Date.now(),
-      metadata: {
-        trialCount: experimentState.trials.length,
-        responseCount: responseState.length,
-        captureCount: captureState.length
-      }
+      isValid: true,
+      processedData: responseData,
+      validationTimestamp: Date.now()
     };
+  }
+
+  async handleResponseError(error, sessionId) {
+    const errorLog = {
+      timestamp: Date.now(),
+      sessionId,
+      error: error.message,
+      type: 'response_validation'
+    };
+
+    console.error('Response validation failed:', errorLog);
+    return errorLog;
   }
 
   async validateStateAlignment(sessionId) {
-    const stateVector = await this.platformService.getFullStateVector(sessionId);
+    const stateVector = await this.stateManager.getFullStateVector(sessionId);
     const captures = await this.mediaHandler.getSessionCaptures(sessionId);
     
     return {
@@ -34,68 +77,6 @@ class ResponsePipeline {
       timestamp: Date.now()
     };
   }
-
-  async processResponse(experimentId, sessionId, responseData) {
-    const validatedResponse = await this.validateResponse(responseData);
-    const sessionState = await this.platformService.getSessionState(sessionId);
-    
-    if (responseData.captureData) {
-      try {
-        const capture = await this.mediaHandler.saveTrialCapture(
-          sessionId, 
-          responseData.trialNumber, 
-          responseData.captureData
-        );
-        validatedResponse.captureId = capture.metadata.captureId;
-      } catch (error) {
-        // Continue processing response even if capture fails
-        console.warn(`Capture failed for trial ${responseData.trialNumber}:`, error);
-      }
-    }
-
-    return {
-      response: validatedResponse,
-      sessionState: sessionState.current,
-      timestamp: Date.now()
-    };
-  }
-  async validateResponse(responseData) {
-    return {
-      isValid: true,
-      processedData: responseData,
-      validationTimestamp: Date.now()
-    };
-  }
-
-  async aggregateResults(sessionId) {
-    const captures = await this.mediaHandler.getSessionCaptures(sessionId);
-    const sessionState = await this.platformService.getSessionState(sessionId);
-    
-    return {
-      responses: sessionState.responses,
-      captures: captures,
-      aggregationTimestamp: Date.now()
-    };
-  }
-
-  async processBatchResponses(experimentId, sessionId, responses) {
-    const results = [];
-    const errors = [];
-    
-    for (const response of responses) {
-      try {
-        const result = await this.processResponse(experimentId, sessionId, response);
-        results.push(result);
-      } catch (error) {
-        errors.push({ response, error: error.message });
-        continue;
-      }
-    }
-    
-    return { results, errors };
-  }
 }
 
-module.exports = wrapService(new ResponsePipeline(), 'ResponsePipeline');
-
-
+module.exports = ResponsePipeline;

@@ -32,27 +32,34 @@ const ResultsView = ({ experimentId, onExportComplete }) => {
     setIsLoading(true);
     try {
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EXPORT}/${experimentId}`,
-        { credentials: 'include' }
+        `${API_CONFIG.BASE_URL}/export/${experimentId}`,
+        { 
+          method: 'GET',
+          credentials: 'include'
+        }
       );
+      
+      if (!response.ok) throw new Error('Export failed');
       
       const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
       a.download = `nst-session-${experimentId}.zip`;
+      document.body.appendChild(a);
       a.click();
-      
+      document.body.removeChild(a);
       window.URL.revokeObjectURL(url);
+      
       setExportStatus('complete');
+      if (onExportComplete) onExportComplete();
     } catch (error) {
       console.error('Export failed:', error);
       setExportStatus('error');
     } finally {
       setIsLoading(false);
     }
-  };
-  
+  };  
   return (
     <div className="results-view">
       <h1>Experiment Complete</h1>

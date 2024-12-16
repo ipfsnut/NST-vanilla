@@ -1,12 +1,11 @@
 import React from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { queueResponse, updateTrialState } from '../redux/experimentSlice';
+import { withResponseErrorHandling } from './ResponseErrorBoundary';
 
 const ResponseHandler = ({ experimentId }) => {
   const dispatch = useDispatch();
-  const { phase } = useSelector(state => state.experiment.trialState);
-  const { currentDigit } = useSelector(state => state.experiment.trialState);
-  const { queue } = useSelector(state => state.experiment.responses);
+  const { phase, currentDigit, digitIndex, trialNumber } = useSelector(state => state.experiment.trialState);
 
   const validateResponse = (key, digit) => {
     const isOdd = digit % 2 === 1;
@@ -27,28 +26,29 @@ const ResponseHandler = ({ experimentId }) => {
     if (event.key !== 'f' && event.key !== 'j' || phase !== 'running') return;
 
     const validation = validateResponse(event.key, currentDigit);
-    console.log('Response validation:', validation);
-
-    dispatch(queueResponse({
+    
+    // Single response per digit position
+    const response = {
       experimentId,
       response: event.key,
       responseType: validation.responseType,
       digit: currentDigit,
       isCorrect: validation.isCorrect,
-      timestamp: Date.now()
-    }));
+      timestamp: Date.now(),
+      position: digitIndex,
+      trialNumber
+    };
 
-    if (queue.length >= 10 || validation.isCorrect) {
-      dispatch(updateTrialState({ phase: 'trial-start' }));
-    }
+    dispatch(queueResponse(response));
+    dispatch(updateTrialState({ phase: 'trial-start' }));
   };
 
   React.useEffect(() => {
     window.addEventListener('keypress', handleKeyPress);
     return () => window.removeEventListener('keypress', handleKeyPress);
-  }, [currentDigit, experimentId, phase, queue.length]);
+  }, [currentDigit, experimentId, phase, digitIndex, trialNumber]);
 
   return null;
 };
 
-export default ResponseHandler;
+export default withResponseErrorHandling(ResponseHandler);

@@ -8,19 +8,27 @@
 2. Digit Sequence Generation ✓
 3. Trial Completion ✓
 4. Controller Logic ✓
-   - Capture loop needs phase-based control ✓
-   - Trial count overflow needs bounds checking ✓
-   - Implement capture phase gating ✓
-   - Add trial bounds validation ✓
 
 ## Phase 3: Data Export Implementation (Current Focus)
-1. Results Collection
+1. Fix Export Issues
+   - Add archive completion check to zipCreator.js
+   - Pass capture settings through full chain
+   - Include responses in export data
+   - Link responses to captures by timestamp
+
+2. Fix Trial Progression
+   - Debug digit display hanging on responses
+   - Verify state transition triggers
+   - Add progression logging
+   - Test response handling chain
+
+3. Results Collection
    - Implement data aggregation
    - Add performance metrics
    - Include trial metadata
    - Capture timing data
 
-2. Export Format
+4. Export Format
    - Define JSON structure
    - Add CSV conversion
    - Include experiment metadata
@@ -31,7 +39,6 @@
 - Zero sync errors in response-capture chain ✓
 - Proper digit sequence generation per trial ✓
 - Trial completion logic ✓
-- Smooth trial progression ✓
+- Smooth trial progression
 - Reliable media operations ✓
 - Performance metrics within spec ✓
-- Performance metrics within spec
