@@ -247,5 +247,9 @@ router.get('/captures/:sessionId', nstController.getSessionCaptures);
  */
 router.post('/export/validate', nstController.validateExportData);
 
+// Add these routes alongside existing ones
+router.post('/capture', nstController.submitCapture);
+router.get('/export/:sessionId', nstController.exportSessionData);
+
 
 module.exports = router;

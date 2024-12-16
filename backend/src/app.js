@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 
 const express = require('express');
 const cors = require('cors');
@@ -10,7 +11,6 @@ const mongoose = require('mongoose');
 
 const MediaHandler = require('./services/mediaHandler');
 const stateManager = require('./services/stateManager');
-
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -28,7 +28,7 @@ const mongoStore = MongoStore.create({
   collectionName: 'sessions'
 });
 
-const mediaHandler = new MediaHandler();
+const mediaHandler = new MediaHandler(path.join(__dirname, '..', 'uploads'));
 const app = express();
 
 // Middleware

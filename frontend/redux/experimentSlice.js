@@ -77,32 +77,39 @@ const experimentSlice = createSlice({
         state.trialState.currentDigit = action.payload.currentDigit;
         state.trialState.trialNumber = action.payload.trialNumber - 1;
       }
+    
       // Handle digit progression within trials
-    if (action.payload.phase === 'trial-start') {
-    // Check completion first
-    if (state.trialState.trialNumber > state.trials.length - 1) {
-      state.trialState.phase = 'complete';
-      state.isComplete = true;
-      return;
-    }
-
-    const currentTrial = state.trials[state.trialState.trialNumber];
-    if (currentTrial) {
-      const nextDigitIndex = state.trialState.digitIndex + 1;
-      
-      if (nextDigitIndex >= currentTrial.number.length) {
-        // Move to next trial
-        state.trialState.trialNumber += 1;
-        state.trialState.digitIndex = 0;
-        state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
-      } else {
-        // Next digit in current trial
-        state.trialState.digitIndex = nextDigitIndex;
-        state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
+      if (action.payload.phase === 'trial-start') {
+        const currentTrial = state.trials[state.trialState.trialNumber];
+        console.log('Trial progression debug:', {
+          currentTrialNumber: state.trialState.trialNumber,
+          currentDigitIndex: state.trialState.digitIndex,
+          sequenceLength: currentTrial?.number?.length,
+          fullSequence: currentTrial?.number
+        });
+        
+        if (currentTrial) {
+          const nextDigitIndex = state.trialState.digitIndex + 1;
+          
+          if (nextDigitIndex >= currentTrial.number.length) {
+            state.trialState.trialNumber += 1;
+            
+            // Check completion after incrementing trial number
+            if (state.trialState.trialNumber >= state.trials.length) {
+              state.trialState.phase = 'complete';
+              state.isComplete = true;
+              return;
+            }
+            
+            state.trialState.digitIndex = 0;
+            state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
+          } else {
+            state.trialState.digitIndex = nextDigitIndex;
+            state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
+          }
+        }
       }
-    }
-  }
-
+      
       state.trialState.phase = action.payload.phase;
       
       if (action.payload.metadata) {

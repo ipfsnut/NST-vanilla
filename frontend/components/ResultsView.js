@@ -5,13 +5,17 @@ import { API_CONFIG } from '../config/api';
 const ResultsView = ({ experimentId, onExportComplete }) => {
   const [results, setResults] = useState(null);
   const [exportStatus, setExportStatus] = useState('idle');
+  const [isLoading, setIsLoading] = useState(false);
   const captures = useSelector(state => state.capture.captures);
 
   useEffect(() => {
     const fetchResults = async () => {
       try {
+        // Wait for state transition to complete
+        await new Promise(resolve => setTimeout(resolve, 500));
+        
         const response = await fetch(
-          `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESULTS}?experimentId=${experimentId}`, 
+          `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESULTS}?experimentId=${experimentId}`,
           { credentials: 'include' }
         );
         const data = await response.json();
@@ -20,64 +24,52 @@ const ResultsView = ({ experimentId, onExportComplete }) => {
         console.error('Failed to fetch results:', error);
       }
     };
-
+  
     fetchResults();
   }, [experimentId]);
 
   const handleExport = async () => {
-    setExportStatus('preparing');
+    setIsLoading(true);
     try {
       const response = await fetch(
-        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.RESULTS}?experimentId=${experimentId}&format=export`, 
+        `${API_CONFIG.BASE_URL}${API_CONFIG.ENDPOINTS.EXPORT}/${experimentId}`,
         { credentials: 'include' }
       );
-      const data = await response.json();
       
-      // Include capture data in export
-      const fullExport = {
-        ...data,
-        captures: captures.map(capture => ({
-          timestamp: capture.timestamp,
-          metadata: capture.metadata
-        }))
-      };
-
-      const blob = new Blob([JSON.stringify(fullExport, null, 2)], { type: 'application/json' });
+      const blob = await response.blob();
       const url = window.URL.createObjectURL(blob);
       const a = document.createElement('a');
       a.href = url;
-      a.download = `nst-experiment-${experimentId}.json`;
+      a.download = `nst-session-${experimentId}.zip`;
       a.click();
       
+      window.URL.revokeObjectURL(url);
       setExportStatus('complete');
-      onExportComplete?.();
     } catch (error) {
       console.error('Export failed:', error);
       setExportStatus('error');
+    } finally {
+      setIsLoading(false);
     }
   };
-
+  
   return (
     <div className="results-view">
-      <h1 className="matrix-text">Experiment Complete</h1>
+      <h1>Experiment Complete</h1>
       {results && (
         <div className="results-data">
           <p>Total Trials: {results.metrics?.totalTrials}</p>
-          <p>Accuracy: {results.metrics?.accuracy}%</p>
-          <p>Total Responses: {results.responses?.length}</p>
-          <p>Captures: {captures.length}</p>
+          <p>Total Captures: {captures.length}</p>
+          <p>Capture Times: {captures.map(c => new Date(c.timestamp).toLocaleTimeString()).join(', ')}</p>
         </div>
       )}
       <button 
-        className="matrix-button" 
         onClick={handleExport}
-        disabled={exportStatus === 'preparing'}
+        disabled={isLoading}
+        className="export-button"
       >
-        {exportStatus === 'preparing' ? 'Preparing Export...' : 'Export Results'}
+        {isLoading ? 'Preparing Export...' : 'Export Results'}
       </button>
-      {exportStatus === 'error' && (
-        <div className="error-message">Export failed. Please try again.</div>
-      )}
     </div>
   );
 };

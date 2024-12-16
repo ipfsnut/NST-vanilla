@@ -231,6 +231,13 @@ const submitResponse = async (req, res) => {
   }
 };
 
+const CAPTURE_SETTINGS = {
+  width: 640,
+  height: 480,
+  imageType: 'image/jpeg',
+  quality: 0.8
+};
+
 // Media Handling
 /**
  * @frontend ExperimentController checks progress
@@ -240,26 +247,54 @@ const submitResponse = async (req, res) => {
  */
 const submitCapture = async (req, res) => {
   try {
-    const { experimentId, trialNumber, captureData } = req.body;
+    const { experimentId, captureData, timestamp } = req.body;
+    
+    console.log('Capture request received:', {
+      experimentId,
+      timestamp,
+      dataSize: captureData?.length
+    });
+
     const fileResult = await mediaHandler.saveTrialCapture(
       experimentId,
-      trialNumber,
-      captureData
+      captureData,
+      {
+        timestamp,
+        width: CAPTURE_SETTINGS.width,
+        height: CAPTURE_SETTINGS.height,
+        quality: CAPTURE_SETTINGS.quality,
+        imageType: CAPTURE_SETTINGS.imageType
+      }
     );
-    await stateManager.addCapture(experimentId, {
-      ...fileResult,
-      trialNumber
+
+    console.log('File save result:', {
+      filename: fileResult.filename,
+      filepath: fileResult.filepath
     });
+
+    const captureRecord = await stateManager.addCapture(experimentId, {
+      ...fileResult,
+      timestamp,
+      settings: CAPTURE_SETTINGS
+    });
+
+    console.log('Capture record created:', captureRecord);
+
     res.json({
       success: true,
       filepath: fileResult.filepath,
       metadata: fileResult.metadata
     });
   } catch (error) {
-    console.error('Capture error:', error);
+    console.error('Capture error details:', {
+      error: error.message,
+      stack: error.stack,
+      experimentId: req.body.experimentId
+    });
     res.status(500).json({ error: error.message });
   }
 };
+
 
 const getSessionCaptures = async (req, res) => {
   try {
@@ -277,7 +312,6 @@ const getSessionCaptures = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 // Configuration
 const getCaptureConfig = async (req, res) => {
   try {
@@ -313,19 +347,31 @@ const exportSessionData = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const session = await stateManager.getSessionState(sessionId);
+    const captures = await stateManager.getSessionCaptures(sessionId);
+    
+    // Get full paths for all captures
+    const captureFiles = captures.map(capture => ({
+      filepath: path.join(process.cwd(), 'uploads', capture.filename),
+      metadata: capture.metadata,
+      trialNumber: capture.trialNumber,
+      timestamp: capture.timestamp
+    }));
+
     const zipFileName = await createAndDownloadZip({
       trials: session.state.trials,
       responses: session.state.responses,
-      captures: session.state.captures || []
-    });
-    res.json({
-      exportData: zipFileName,
+      captures: captures,
       metadata: {
-        timestamp: Date.now(),
-        format: 'zip',
-        sessionId
+        sessionId,
+        startTime: session.startTime,
+        endTime: session.lastActivity,
+        totalTrials: session.state.trials.length
       }
     });
+
+    res.setHeader('Content-Type', 'application/zip');
+    res.setHeader('Content-Disposition', `attachment; filename=nst-session-${sessionId}.zip`);
+    res.sendFile(zipFileName);
   } catch (error) {
     res.status(500).json({ error: error.message });
   }
@@ -444,6 +490,25 @@ const getProgress = async (req, res) => {
   }
 };
 
+const exportFormatters = require('../utils/exportFormatters');
+
+const exportResults = async (req, res) => {
+  try {
+    const { experimentId, format = 'json' } = req.query;
+    const results = await resultsAggregator.getFullResults(experimentId);
+    
+    const formattedData = format === 'csv' 
+      ? exportFormatters.formatCSV(results)
+      : exportFormatters.formatJSON(results);
+    
+    res.setHeader('Content-Disposition', `attachment; filename=nst-results-${experimentId}.${format}`);
+    res.send(formattedData);
+  } catch (error) {
+    res.status(500).json({ error: error.message });
+  }
+};
+
+
 module.exports = {
   startSession,
   getExperimentState,
@@ -464,5 +529,6 @@ module.exports = {
   getSessionCaptures,
   validateExportData,
   reportError,
-  getRecoveryInstructions
+  getRecoveryInstructions,
+  exportResults
 };
