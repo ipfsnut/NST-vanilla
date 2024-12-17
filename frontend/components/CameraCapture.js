@@ -37,6 +37,8 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
   const processingRef = useRef(false);
   
   const { deviceStatus } = useSelector(state => state.capture);
+  const { trialNumber, digitIndex } = useSelector(state => state.experiment.trialState);
+
   // Initialize camera stream once
   useEffect(() => {
     const initializeCamera = async () => {
@@ -61,7 +63,8 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
 
     initializeCamera();
   }, []);
-  // Handle captures
+
+  // Update capture effect
   useEffect(() => {
     if (shouldCapture && streamRef.current && !processingRef.current) {
       processingRef.current = true;
@@ -72,8 +75,6 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
       // Prepare canvas
       ctx.fillStyle = '#000';
       ctx.fillRect(0, 0, canvas.width, canvas.height);
-      
-      // Draw video frame
       ctx.drawImage(video, 0, 0, canvas.width, canvas.height);
       
       const imageData = canvas.toDataURL(CAPTURE_SETTINGS.imageType, CAPTURE_SETTINGS.quality);
@@ -86,21 +87,23 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
           experimentId,
           captureData: imageData,
           timestamp: Date.now(),
-          settings: CAPTURE_SETTINGS  // Add this line
+          settings: CAPTURE_SETTINGS,
+          trialNumber,
+          digitIndex
         })
       })
       .then(() => console.log('Capture completed'))
       .finally(() => {
         processingRef.current = false;
       });
-    }  }, [shouldCapture, experimentId]);
+    }
+  }, [shouldCapture, experimentId, trialNumber, digitIndex]);
 
- 
-    return (
-      <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
-        <video ref={videoRef} autoPlay playsInline muted />
-        <canvas ref={canvasRef} width={CAPTURE_SETTINGS.width} height={CAPTURE_SETTINGS.height} />
-      </div>
-    );
-  }
+  return (
+    <div style={{ position: 'absolute', left: '-9999px', top: '-9999px' }}>
+      <video ref={videoRef} autoPlay playsInline muted />
+      <canvas ref={canvasRef} width={CAPTURE_SETTINGS.width} height={CAPTURE_SETTINGS.height} />
+    </div>
+  );
+};
 export default CameraCapture;

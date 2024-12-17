@@ -251,7 +251,7 @@ const CAPTURE_SETTINGS = {
  */
 const submitCapture = async (req, res) => {
   try {
-    const { experimentId, captureData, timestamp } = req.body;
+    const { experimentId, captureData, timestamp, trialNumber, digitIndex, settings } = req.body;
     
     console.log('Capture request received:', {
       experimentId,
@@ -264,6 +264,8 @@ const submitCapture = async (req, res) => {
       captureData,
       {
         timestamp,
+        trialNumber,
+        digitIndex,
         width: CAPTURE_SETTINGS.width,
         height: CAPTURE_SETTINGS.height,
         quality: CAPTURE_SETTINGS.quality,

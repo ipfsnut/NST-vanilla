@@ -60,7 +60,7 @@ class MediaHandler {
   }
 
   async saveTrialCapture(experimentId, captureData, metadata) {
-    const filename = `${experimentId}-${metadata.timestamp}.jpg`;
+    const filename = `nst_trial${metadata.trialNumber}_pos${metadata.digitIndex}_${Date.now()}.jpg`;
     const filepath = path.join(this.basePath, filename);
     
     // Convert base64 to buffer
