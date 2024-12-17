@@ -21,7 +21,8 @@ const ExperimentController = () => {
     trialState,
     trials,
     isComplete,
-    responses
+    responses,
+    captureConfig
   } = useSelector(state => state.experiment);
 
   // Add error handler
@@ -35,7 +36,6 @@ const ExperimentController = () => {
   // Core state management and logging
   useEffect(() => {
     console.log('Phase change detected:', trialState.phase);
-
     if (trialState.phase === 'complete') {
       fetch(`${API_CONFIG.BASE_URL}/session/${experimentId}/transition`, {
         method: 'POST',
@@ -46,22 +46,25 @@ const ExperimentController = () => {
       .then(data => console.log('State transition complete:', data));
     }
   }, [trialState, experimentId]);
-  // Capture timing
-useEffect(() => {
-  // Update the capture trigger to check position within trial
-  const shouldTriggerCapture = (digitIndex) => {
-    return (digitIndex + 1) % 3 === 0;
-  };
 
-  if (trialState.phase === 'running' && 
-      trialState.digitIndex > 0 && 
-      shouldTriggerCapture(trialState.digitIndex)) {
-    console.log('Triggering capture at digit:', trialState.digitIndex);
-    dispatch(processResponseQueue());
-  }
-}, [trialState.phase, trialState.digitIndex]);
+  useEffect(() => {
+    const shouldTriggerCapture = (digitIndex) => {
+      if (!captureConfig?.enabled) return false;
+      const { firstCapture, interval } = captureConfig;
+      
+      // Add 1 to digitIndex since we want to start at position 1
+      const adjustedIndex = digitIndex + 1;
+      
+      return adjustedIndex === firstCapture || 
+        (adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0);
+    };
 
-  // Session initialization
+    if (trialState.phase === 'running' && 
+        shouldTriggerCapture(trialState.digitIndex)) {
+      console.log('Triggering capture at digit:', trialState.digitIndex + 1);
+      dispatch(processResponseQueue());
+    }
+  }, [trialState.phase, trialState.digitIndex, captureConfig, dispatch]);
   useEffect(() => {
     const initializeSession = async () => {
       if (trialState.phase === 'initializing' && !experimentId) {

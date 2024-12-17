@@ -6,7 +6,6 @@ export const responseQueueMiddleware = store => next => action => {
   if (action.type === 'experiment/queueResponse') {
     const state = store.getState().experiment;
     console.log('Response queued:', action.payload);
-    // Process immediately and clear
     processResponses([action.payload], state.experimentId)
       .then(() => store.dispatch(completeResponseProcessing()));
   }
@@ -58,9 +57,10 @@ const experimentSlice = createSlice({
       lastProcessed: null
     },
     captureConfig: {
-      enabled: false,
-      frequency: 3,
-      quality: 'high'
+      firstCapture: 1,
+      interval: 7,
+      quality: 'high',
+      enabled: true
     },
     stateVector: {
       lastUpdate: null,
@@ -95,21 +95,25 @@ const experimentSlice = createSlice({
           console.log('Position check:', {
             digitIndex: state.trialState.digitIndex,
             nextIndex: nextDigitIndex,
-            trialNumber: state.trialState.trialNumber
+            trialNumber: state.trialState.trialNumber,
+            totalTrials: state.trials.length
           });
           
-          // Complete only after processing index 14 (15th digit)
-          if (state.trialState.digitIndex === SEQUENCE_LENGTH - 1 && 
-              state.trialState.trialNumber === state.trials.length - 1) {
+          // Only complete after processing ALL digits of the final trial
+          if (state.trialState.trialNumber === state.trials.length - 1 && 
+              nextDigitIndex > SEQUENCE_LENGTH - 1) {
             state.trialState.phase = 'complete';
             state.isComplete = true;
             return;
           }
           
+          // Handle progression to next trial or next digit
           if (nextDigitIndex >= SEQUENCE_LENGTH) {
-            state.trialState.trialNumber += 1;
-            state.trialState.digitIndex = 0;
-            state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
+            if (state.trialState.trialNumber < state.trials.length - 1) {
+              state.trialState.trialNumber += 1;
+              state.trialState.digitIndex = 0;
+              state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
+            }
           } else {
             state.trialState.digitIndex = nextDigitIndex;
             state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
@@ -134,9 +138,15 @@ const experimentSlice = createSlice({
       };
     },
 
+    updateCaptureConfig: (state, action) => {
+      state.captureConfig = {
+        ...state.captureConfig,
+        ...action.payload
+      };
+    },
+
     queueResponse: (state, action) => {
       const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
-      // Only queue if we don't have a response for this position
       if (!state.responses.byPosition[positionKey]) {
         state.responses.byPosition[positionKey] = action.payload;
         state.responses.queue.push(action.payload);
@@ -152,18 +162,9 @@ const experimentSlice = createSlice({
       state.responses.queue = [];
       state.responses.lastProcessed = Date.now();
     },
-
-    updateCaptureConfig: (state, action) => {
-      state.captureConfig = {
-        ...state.captureConfig,
-        ...action.payload
-      };
-    },
-
     setTrials: (state, action) => {
       state.trials = action.payload;
     },
-
     setComplete: (state, action) => {
       state.isComplete = action.payload;
     }

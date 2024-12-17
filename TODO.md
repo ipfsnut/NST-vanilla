@@ -32,6 +32,20 @@
    - Include experiment metadata ✓
 
 
+## Phase 4: Critical Fixes & Enhancements
+1. Trial Completion Bug
+   - Fix final digit response capture in last trial
+   - Review stateManager.js trial progression logic
+   - Add validation for trial completion edge cases
+   - Test full sequence completion
+
+2. Configurable Image Capture
+   - Extend captureConfig in experimentConfig.js
+   - Add quality presets (low, medium, high)
+   - Implement dynamic interval adjustment
+   - Add capture validation checks
+   - Update MediaHandler to support new config
+
 ## Success Criteria
 - Complete state vector validation ✓
 - Zero sync errors in response-capture chain ✓
@@ -40,7 +54,11 @@
 - Smooth trial progression ✓
 - Reliable media operations ✓
 - Performance metrics within spec ✓
+- Complete capture of all responses including final digit ✗
+- Configurable image capture working as specified ✗
 
 ## Next Steps
 - Document configuration for trial parameters
 - Implement cleanup after export completion
+- Test final digit capture fix
+- Validate image capture configuration changes
