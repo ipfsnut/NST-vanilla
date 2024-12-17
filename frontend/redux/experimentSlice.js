@@ -86,26 +86,28 @@ const experimentSlice = createSlice({
       // Handle digit progression within trials
       if (action.payload.phase === 'trial-start') {
         const currentTrial = state.trials[state.trialState.trialNumber];
-        console.log('Trial progression debug:', {
-          currentTrialNumber: state.trialState.trialNumber,
-          currentDigitIndex: state.trialState.digitIndex,
-          sequenceLength: currentTrial?.number?.length,
-          fullSequence: currentTrial?.number
-        });
         
         if (currentTrial) {
           const nextDigitIndex = state.trialState.digitIndex + 1;
+          const SEQUENCE_LENGTH = 15;
           
-          if (nextDigitIndex >= currentTrial.number.length) {
+          // Debug the exact position
+          console.log('Position check:', {
+            digitIndex: state.trialState.digitIndex,
+            nextIndex: nextDigitIndex,
+            trialNumber: state.trialState.trialNumber
+          });
+          
+          // Complete only after processing index 14 (15th digit)
+          if (state.trialState.digitIndex === SEQUENCE_LENGTH - 1 && 
+              state.trialState.trialNumber === state.trials.length - 1) {
+            state.trialState.phase = 'complete';
+            state.isComplete = true;
+            return;
+          }
+          
+          if (nextDigitIndex >= SEQUENCE_LENGTH) {
             state.trialState.trialNumber += 1;
-            
-            // Check completion after incrementing trial number
-            if (state.trialState.trialNumber >= state.trials.length) {
-              state.trialState.phase = 'complete';
-              state.isComplete = true;
-              return;
-            }
-            
             state.trialState.digitIndex = 0;
             state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
           } else {

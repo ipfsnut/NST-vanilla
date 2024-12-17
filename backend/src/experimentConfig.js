@@ -12,8 +12,10 @@ module.exports = {
     ODD: 'f',
     EVEN: 'j'
   },
-  INTER_TRIAL_DELAY: 1000,
-  numTrials: 14,
-  effortLevels: ['1', '2', '3', '4', '5', '6', '7'],
-  trialsPerEffort: 2
+  shuffleTrials: false,
+  trialConfig: [
+    { level: 1, trials: 1 },
+    { level: 4, trials: 1 },
+    { level: 7, trials: 1 }
+  ]
 };
