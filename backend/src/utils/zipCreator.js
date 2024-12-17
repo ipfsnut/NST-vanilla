@@ -1,34 +1,40 @@
 const JSZip = require('jszip');
 const fs = require('fs').promises;
+const path = require('path');
 
-const createAndDownloadZip = async (allTrialData) => {
+const createAndDownloadZip = async (data) => {
   const zip = new JSZip();
-  let csvContent = "Trial Number,Effort Level,All Correct,Image Names,Responses\n";
+  const tempDir = path.join(process.cwd(), 'temp');
+  
+  // Ensure temp directory exists
+  await fs.mkdir(tempDir, { recursive: true });
+  
+  const zipFileName = path.join(tempDir, `nst_export_${Date.now()}.zip`);
 
-  allTrialData.forEach((trial, trialIndex) => {
-    const allCorrect = trial.responses.every(r => r.correct);
-    const imageNames = [];
+  // Add data files
+  zip.file('data.csv', data['data.csv']);
+  zip.file('data.json', data['data.json']);
 
-    trial.responses.forEach((response, responseIndex) => {
-      if (response.imageBlob) {
-        const imageName = `Trial_${trialIndex}_Response_${responseIndex}.jpg`;
-        imageNames.push(imageName);
-        zip.file(imageName, response.imageBlob);
+  // Add captures to a separate folder
+  if (data.captures && data.captures.length > 0) {
+    const capturesFolder = zip.folder('captures');
+    for (const capture of data.captures) {
+      try {
+        const imageData = await fs.readFile(capture.filepath);
+        const filename = path.basename(capture.filepath);
+        capturesFolder.file(filename, imageData);
+      } catch (error) {
+        console.log(`Skipping capture ${capture.filepath}: ${error.message}`);
       }
-    });
+    }
+  }
 
-    csvContent += `${trial.trialNumber},${trial.effortLevel},${allCorrect},${imageNames.join('|')},`;
-    csvContent += trial.responses.map(r => `${r.digit}:${r.response}:${r.correct}`).join('|');
-    csvContent += "\n";
-  });
+  // Generate and save zip file
+  const content = await zip.generateAsync({ type: 'nodebuffer' });
+  await fs.writeFile(zipFileName, content);
 
-  zip.file("experiment_data.csv", csvContent);
-  const zipBuffer = await zip.generateAsync({type: "nodebuffer"});
-  
-  const fileName = "experiment_results.zip";
-  await fs.writeFile(fileName, zipBuffer);
-  
-  return fileName;
+  console.log('Archive created:', zipFileName, `(${content.length} bytes)`);
+  return zipFileName;
 };
 
 module.exports = { createAndDownloadZip };

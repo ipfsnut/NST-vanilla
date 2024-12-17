@@ -8,7 +8,7 @@ const nstController = require('../controllers/nstController');
  */
 
 /**
- * @route POST /api/nst/start
+ * @route POST /api/start
  * @frontend CORE ENDPOINT - Used in ExperimentView for session initialization
  * @desc Initialize new experiment session
  * @state INIT
@@ -22,7 +22,7 @@ const nstController = require('../controllers/nstController');
 router.post('/start', nstController.startSession);
 
 /**
- * @route GET /api/nst/state
+ * @route GET /api/state
  * @desc Get current experiment state
  * @state ANY
  * @frontend CORE ENDPOINT - Used in ExperimentView for state tracking
@@ -33,7 +33,7 @@ router.post('/start', nstController.startSession);
 router.get('/state', nstController.getExperimentState);
 
 /**
- * @route GET /api/nst/trial-state
+ * @route GET /api/trial-state
  * @desc Get current trial state
  * @state TRIAL_START | AWAIT_RESPONSE
  * @vision NSTvision.txt:Session Management:GET /trial-state
@@ -43,7 +43,7 @@ router.get('/state', nstController.getExperimentState);
 router.get('/trial-state', nstController.getTrialState);
 
 /**
- * @route GET /api/nst/progress
+ * @route GET /api/progress
  * @desc Get experiment progress
  * @state ANY
  * @vision NSTvision.txt:Session Management:GET /progress
@@ -53,7 +53,7 @@ router.get('/trial-state', nstController.getTrialState);
 router.get('/progress', nstController.getProgress);
 
 /**
- * @route GET /api/nst/results
+ * @route GET /api/results
  * @desc Get complete session results
  * @state COMPLETE
  * @vision NSTvision.txt:Session Management:GET /results
@@ -63,27 +63,7 @@ router.get('/progress', nstController.getProgress);
 router.get('/results', nstController.getResults);
 
 /**
- * @route PUT /api/nst/session/pause
- * @desc Pause active experiment
- * @state ANY
- * @vision NSTvision.txt:Session Management:PUT /session/pause
- * @triggers SessionControl pause operation
- * @returns {Object} sessionStatus, pauseTimestamp
- */
-router.put('/session/pause', nstController.pauseSession);
-
-/**
- * @route PUT /api/nst/session/resume
- * @desc Resume paused experiment
- * @state PAUSED
- * @vision NSTvision.txt:Session Management:PUT /session/resume
- * @triggers Session reactivation
- * @returns {Object} sessionStatus, resumeTimestamp
- */
-router.put('/session/resume', nstController.resumeSession);
-
-/**
- * @route PUT /api/nst/session/abort
+ * @route PUT /api/session/abort
  * @desc Terminate experiment early
  * @state ANY
  * @vision NSTvision.txt:Session Management:PUT /session/abort
@@ -98,7 +78,7 @@ router.put('/session/abort', nstController.abortSession);
  */
 
 /**
- * @route GET /api/nst/session/:id/status
+ * @route GET /api/session/:id/status
  * @desc Get detailed session status
  * @state ANY
  * @vision NSTvision.txt:State Management:GET /session/:id/status
@@ -108,7 +88,7 @@ router.put('/session/abort', nstController.abortSession);
 router.get('/session/:id/status', nstController.getSessionStatus);
 
 /**
- * @route POST /api/nst/session/:id/transition
+ * @route POST /api/session/:id/transition
  * @desc Request state transition
  * @state ANY
  * @vision NSTvision.txt:State Management:POST /session/:id/transition
@@ -123,7 +103,7 @@ router.post('/session/:id/transition', nstController.requestStateTransition);
  */
 
 /**
- * @route POST /api/nst/session/:id/error
+ * @route POST /api/session/:id/error
  * @desc Report error condition
  * @state ANY
  * @vision NSTvision.txt:Error Handling:POST /session/:id/error
@@ -133,7 +113,7 @@ router.post('/session/:id/transition', nstController.requestStateTransition);
 router.post('/session/:id/error', nstController.reportError);
 
 /**
- * @route GET /api/nst/session/:id/recovery
+ * @route GET /api/session/:id/recovery
  * @desc Get recovery instructions
  * @state ANY
  * @vision NSTvision.txt:Error Handling:GET /session/:id/recovery
@@ -148,7 +128,7 @@ router.get('/session/:id/recovery', nstController.getRecoveryInstructions);
  */
 
 /**
- * @route POST /api/nst/trials
+ * @route POST /api/trials
  * @desc Create new trial
  * @state TRIAL_START
  * @vision NSTvision.txt:Trial Management:POST /trials
@@ -160,7 +140,7 @@ router.get('/session/:id/recovery', nstController.getRecoveryInstructions);
 router.post('/trials', nstController.createTrial);
 
 /**
- * @route GET /api/nst/next-digit
+ * @route GET /api/next-digit
  * @desc Get next digit in sequence
  * @state TRIAL_START
  * @frontend CORE ENDPOINT - Used for digit sequence progression
@@ -171,7 +151,7 @@ router.post('/trials', nstController.createTrial);
 router.get('/next-digit', nstController.getNextDigit);
 
 /**
- * @route POST /api/nst/response
+ * @route POST /api/response
  * @desc Submit trial response
  * @state AWAIT_RESPONSE
  * @frontend CORE ENDPOINT - Used for response submission
@@ -189,7 +169,7 @@ router.post('/response', nstController.submitResponse);
  */
 
 /**
- * @route POST /api/nst/capture
+ * @route POST /api/capture
  * @desc Submit captured image
  * @state ANY
  * @vision NSTvision.txt:Capture Control:POST /capture
@@ -199,7 +179,7 @@ router.post('/response', nstController.submitResponse);
 router.post('/capture', nstController.submitCapture);
 
 /**
- * @route GET /api/nst/capture-config
+ * @route GET /api/capture-config
  * @desc Get capture configuration
  * @state ANY
  * @vision NSTvision.txt:Capture Control:GET /capture-config
@@ -214,7 +194,7 @@ router.get('/capture-config', nstController.getCaptureConfig);
  */
 
 /**
- * @route GET /api/nst/config
+ * @route GET /api/config
  * @desc Get NST configuration
  * @state ANY
  * @vision NSTvision.txt:Configuration:GET /config
@@ -224,7 +204,7 @@ router.get('/capture-config', nstController.getCaptureConfig);
 router.get('/config', nstController.getNSTConfig);
 
 /**
- * @route PUT /api/nst/config
+ * @route PUT /api/config
  * @desc Update NST configuration
  * @state INIT
  * @vision NSTvision.txt:Configuration:PUT /config
@@ -232,5 +212,44 @@ router.get('/config', nstController.getNSTConfig);
  * @returns {Object} updatedConfig
  */
 router.put('/config', nstController.updateNSTConfig);
+
+/**
+ * Export and Capture Management Routes
+ * Handles data export and capture retrieval operations
+ */
+
+/**
+ * @route GET /api/export/:sessionId
+ * @desc Package and return full session data
+ * @state COMPLETE
+ * @vision NSTvision.txt:Export Management:GET /export/:sessionId
+ * @triggers Session data packaging via zipCreator
+ * @returns {Object} exportData, metadata
+ */
+router.get('/export/:sessionId', nstController.exportSessionData);
+
+/**
+ * @route GET /api/captures/:sessionId
+ * @desc Get list of all captures for a session
+ * @state ANY
+ * @vision NSTvision.txt:Capture Management:GET /captures/:sessionId
+ * @triggers MediaHandler capture retrieval
+ * @returns {Object} captures[], metadata
+ */
+router.get('/captures/:sessionId', nstController.getSessionCaptures);
+
+/**
+ * @route POST /api/export/validate
+ * @desc Validate export data structure
+ * @state ANY
+ * @vision NSTvision.txt:Export Management:POST /export/validate
+ * @returns {Object} isValid, errors[], metadata
+ */
+router.post('/export/validate', nstController.validateExportData);
+
+// Add these routes alongside existing ones
+router.post('/capture', nstController.submitCapture);
+router.get('/export/:sessionId', nstController.exportSessionData);
+
 
 module.exports = router;

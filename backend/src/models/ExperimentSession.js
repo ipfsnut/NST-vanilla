@@ -10,7 +10,12 @@ const ExperimentSessionSchema = new mongoose.Schema({
   state: Object,
   startTime: Date,
   responses: Array,
-  config: Object
+  config: Object,
+  captureStats: {
+    total: Number,
+    successful: Number,
+    failed: Number
+  }
 });
 
 module.exports = mongoose.model('ExperimentSession', ExperimentSessionSchema);

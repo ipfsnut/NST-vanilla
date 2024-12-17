@@ -1,57 +1,54 @@
 import React from 'react';
-import { updateTrialState, setResponsePending, setCaptureAndWait } from '../redux/experimentSlice';
-import { API_CONFIG } from '../config/api';
+import { useDispatch, useSelector } from 'react-redux';
+import { queueResponse, updateTrialState } from '../redux/experimentSlice';
+import { withResponseErrorHandling } from './ResponseErrorBoundary';
 
-class ResponseHandler extends React.Component {
-  constructor(props) {
-    super(props);
-    console.log('ResponseHandler constructor called with props:', props);
-    this.state = {
-      responseCount: 0
+const ResponseHandler = ({ experimentId }) => {
+  const dispatch = useDispatch();
+  const { phase, currentDigit, digitIndex, trialNumber } = useSelector(state => state.experiment.trialState);
+
+  const validateResponse = (key, digit) => {
+    const isOdd = digit % 2 === 1;
+    const validation = {
+      isCorrect: (key === 'f' && isOdd) || (key === 'j' && !isOdd),
+      responseType: key === 'f' ? 'odd' : 'even'
     };
-    this.handleKeyPress = this.handleKeyPress.bind(this);
-  }
+    console.log('Response validation:', {
+      key,
+      digit,
+      isOdd,
+      validation
+    });
+    return validation;
+  };
 
-  compareStateVectors(clientVector, serverVector) {
-    if (!serverVector || !serverVector.trial) {
-      return true;
-    }
-    return (
-      clientVector.trial === serverVector.trial &&
-      clientVector.digit === serverVector.digit &&
-      clientVector.phase === serverVector.phase &&
-      Math.abs(clientVector.vector[0] - serverVector.vector[0]) <= 1
-    );
-  }
+  const handleKeyPress = async (event) => {
+    if (event.key !== 'f' && event.key !== 'j' || phase !== 'running') return;
 
-  calculateDrift(clientVector, serverVector) {
-    return {
-      trialDrift: serverVector.trial - clientVector.trial,
-      digitDrift: serverVector.digit - clientVector.digit,
-      phaseDrift: serverVector.phase !== clientVector.phase,
-      vectorDrift: serverVector.vector.map((v, i) => v - clientVector.vector[i])
+    const validation = validateResponse(event.key, currentDigit);
+    
+    // Single response per digit position
+    const response = {
+      experimentId,
+      response: event.key,
+      responseType: validation.responseType,
+      digit: currentDigit,
+      isCorrect: validation.isCorrect,
+      timestamp: Date.now(),
+      position: digitIndex,
+      trialNumber
     };
-  }
 
-  handleKeyPress = (event) => {
-    console.log('Keypress detected:', event.key);
-    if (event.key === 'f' || event.key === 'j') {
-      console.log('Valid key pressed, submitting response');
-      this.props.onResponse(event.key, this.props.currentDigit);
-    }
-  }
+    dispatch(queueResponse(response));
+    dispatch(updateTrialState({ phase: 'trial-start' }));
+  };
 
-  componentDidMount() {
-    window.addEventListener('keypress', this.handleKeyPress);
-  }
+  React.useEffect(() => {
+    window.addEventListener('keypress', handleKeyPress);
+    return () => window.removeEventListener('keypress', handleKeyPress);
+  }, [currentDigit, experimentId, phase, digitIndex, trialNumber]);
 
-  componentWillUnmount() {
-    window.removeEventListener('keypress', this.handleKeyPress);
-  }
+  return null;
+};
 
-  render() {
-    return null;
-  }
-}
-
-export default ResponseHandler;
+export default withResponseErrorHandling(ResponseHandler);

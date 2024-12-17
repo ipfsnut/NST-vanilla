@@ -1,4 +1,5 @@
 require('dotenv').config();
+const path = require('path');
 
 const express = require('express');
 const cors = require('cors');
@@ -8,11 +9,8 @@ const session = require('express-session');
 const MongoStore = require('connect-mongo');
 const mongoose = require('mongoose');
 
-const { generateMarkovNumber } = require('./utils/markovChain');
-const NSTService = require('./services/nstService');
-const nstService = new NSTService();
 const MediaHandler = require('./services/mediaHandler');
-const routes = require('./routes/NSTRoutes');
+const stateManager = require('./services/stateManager');
 
 // MongoDB Connection
 mongoose.connect(process.env.MONGO_URI, {
@@ -30,7 +28,7 @@ const mongoStore = MongoStore.create({
   collectionName: 'sessions'
 });
 
-const mediaHandler = new MediaHandler();
+const mediaHandler = new MediaHandler(path.join(__dirname, '..', 'uploads'));
 const app = express();
 
 // Middleware
@@ -61,8 +59,6 @@ app.use(express.json());
 const nstRoutes = require('./routes/NSTRoutes');
 app.use('/api', nstRoutes);
 
-
-// Error handling middleware remains the same
 app.use((err, req, res, next) => {
   console.error('Error details:', err);
   res.status(err.status || 500).json({
