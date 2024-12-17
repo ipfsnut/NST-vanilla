@@ -1,53 +1,40 @@
-const archiver = require('archiver');
-const fs = require('fs');
+const JSZip = require('jszip');
+const fs = require('fs').promises;
 const path = require('path');
-const exportFormatters = require('./exportFormatters');
 
-const tempDir = path.join(process.cwd(), 'temp');
-if (!fs.existsSync(tempDir)) {
-  fs.mkdirSync(tempDir, { recursive: true });
-}
 const createAndDownloadZip = async (data) => {
-  const zipPath = path.join(tempDir, `${data.metadata.sessionId}.zip`);
-  const output = fs.createWriteStream(zipPath);
-  const archive = archiver('zip', { zlib: { level: 9 }});
+  const zip = new JSZip();
+  const tempDir = path.join(process.cwd(), 'temp');
   
-  return new Promise((resolve, reject) => {
-    output.on('close', () => {
-      console.log(`Archive created: ${zipPath} (${archive.pointer()} bytes)`);
-      resolve(zipPath);
-    });
-    
-    archive.on('error', (err) => {
-      console.error('Archive error:', err);
-      reject(err);
-    });
-    
-    archive.pipe(output);
+  // Ensure temp directory exists
+  await fs.mkdir(tempDir, { recursive: true });
+  
+  const zipFileName = path.join(tempDir, `nst_export_${Date.now()}.zip`);
 
-    // Add formatted CSV data
-    const formattedData = {
-      trials: data.experimentData.trials || []
-    };
-    const csvData = exportFormatters.formatCSV(formattedData);
-    archive.append(Buffer.from(csvData), { name: 'response-data.csv' });
+  // Add data files
+  zip.file('data.csv', data['data.csv']);
+  zip.file('data.json', data['data.json']);
 
-    // Add metadata
-    const metadataBuffer = Buffer.from(JSON.stringify(data.metadata, null, 2));
-    archive.append(metadataBuffer, { name: 'metadata.json' });
-    
-    // Add captures
-    if (data.captures && data.captures.length > 0) {
-      data.captures.forEach(capture => {
-        if (fs.existsSync(capture.filepath)) {
-          archive.file(capture.filepath, { 
-            name: `captures/${path.basename(capture.filepath)}`
-          });
-        }
-      });
+  // Add captures to a separate folder
+  if (data.captures && data.captures.length > 0) {
+    const capturesFolder = zip.folder('captures');
+    for (const capture of data.captures) {
+      try {
+        const imageData = await fs.readFile(capture.filepath);
+        const filename = path.basename(capture.filepath);
+        capturesFolder.file(filename, imageData);
+      } catch (error) {
+        console.log(`Skipping capture ${capture.filepath}: ${error.message}`);
+      }
     }
+  }
 
-    archive.finalize();
-  });
+  // Generate and save zip file
+  const content = await zip.generateAsync({ type: 'nodebuffer' });
+  await fs.writeFile(zipFileName, content);
+
+  console.log('Archive created:', zipFileName, `(${content.length} bytes)`);
+  return zipFileName;
 };
+
 module.exports = { createAndDownloadZip };

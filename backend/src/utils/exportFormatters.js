@@ -25,35 +25,38 @@ const formatJSON = (results) => {
   return JSON.stringify(formattedResults, null, 2);
 };
 
-const formatCSV = (data) => {
-  console.log('CSV data:', data);
-
+const convertToCSV = (trialData) => {
   const headers = [
-    'Trial Number',
-    'Position',
-    'Digit',
-    'Response Key',
-    'Correct',
-    'Response Time',
-    'Timestamp'
-  ].join(',');
+    'trialNumber',
+    'position',
+    'digit',
+    'response',
+    'isCorrect',
+    'responseTime',
+    'sequence'
+  ];
 
-  const rows = data.trials.flatMap(trial => 
-    trial.responses.map(response => [
-      trial.trialNumber,
-      response.position,
-      response.digit,
-      response.keyPressed,
-      response.isCorrect ? 1 : 0,
-      response.responseTime,
-      response.timestamp
-    ].join(','))
+  const rows = trialData.flatMap(trial => 
+    trial.responses.map(response => ({
+      trialNumber: trial.trialNumber,
+      position: response.position,
+      digit: response.digit,
+      response: response.response === 'f' ? 'odd' : 'even',
+      isCorrect: response.isCorrect,
+      responseTime: response.timestamp,
+      sequence: trial.sequence
+    }))
   );
 
-  return [headers, ...rows].join('\n');
+  const csvContent = [
+    headers.join(','),
+    ...rows.map(row => headers.map(header => row[header] ?? '').join(','))
+  ].join('\n');
+
+  return csvContent;
 };
 
 module.exports = {
   formatJSON,
-  formatCSV
+  convertToCSV
 };

@@ -347,39 +347,33 @@ const updateNSTConfig = async (req, res) => {
 };
 
 // Data Export
+const { convertToCSV } = require('../utils/exportFormatters');
 const exportSessionData = async (req, res) => {
   try {
     const { sessionId } = req.params;
     const session = await stateManager.getSessionState(sessionId);
     const captures = await stateManager.getSessionCaptures(sessionId);
-    
-    const formattedData = {
-      trials: session.state.trials.map((trial, index) => {
-        const trialResponses = session.state.responses.filter(r => 
-          r.trialNumber === index
-        );
-        return {
-          trialNumber: index + 1,
-          sequence: trial.number,
-          responses: trialResponses
-        };
-      })
-    };
 
-    console.log('Formatted trial data:', {
-      totalResponses: session.state.responses.length,
-      sampleResponses: session.state.responses.slice(0, 3)
+    // Format trial and response data for CSV
+    const trialData = session.state.trials.map((trial, trialIndex) => {
+      const trialResponses = Object.values(session.state.responsesByPosition)
+        .filter(r => r.trialNumber === trialIndex)
+        .sort((a, b) => a.position - b.position);
+      
+      return {
+        trialNumber: trialIndex + 1,
+        sequence: trial.number,
+        responses: trialResponses
+      };
     });
 
+    const csvData = convertToCSV(trialData);
+    const jsonData = JSON.stringify(trialData, null, 2);
+
     const zipFileName = await createAndDownloadZip({
-      experimentData: formattedData,
-      captures,
-      metadata: {
-        sessionId,
-        startTime: session.startTime,
-        endTime: session.lastActivity,
-        totalTrials: session.state.trials.length
-      }
+      'data.csv': csvData,
+      'data.json': jsonData,
+      captures: captures
     });
 
     res.setHeader('Content-Type', 'application/zip');
@@ -389,7 +383,8 @@ const exportSessionData = async (req, res) => {
     console.error('Export error:', error);
     res.status(500).json({ error: error.message });
   }
-};const validateExportData = async (req, res) => {
+};
+const validateExportData = async (req, res) => {
   try {
     const validation = await mediaHandler.validateCapture(req.body);
     res.json({
