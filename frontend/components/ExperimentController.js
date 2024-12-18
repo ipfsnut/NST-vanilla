@@ -1,10 +1,9 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
+import { 
   updateTrialState,
   setTrials,
-  processResponseQueue,
-  setComplete
+  setComplete 
 } from '../redux/experimentSlice';
 import { API_CONFIG } from '../config/api';
 
@@ -61,8 +60,15 @@ const ExperimentController = () => {
 
     if (trialState.phase === 'running' && 
         shouldTriggerCapture(trialState.digitIndex)) {
-      console.log('Triggering capture at digit:', trialState.digitIndex + 1);
-      dispatch(processResponseQueue());
+      const handleCaptureTrigger = () => {
+        console.log('Triggering capture at digit:', trialState.digitIndex + 1);
+        // Just dispatch the capture event - middleware will handle the queue
+        dispatch(updateTrialState({
+          phase: 'capture',
+          captureSync: true
+        }));
+      };
+      handleCaptureTrigger();
     }
   }, [trialState.phase, trialState.digitIndex, captureConfig, dispatch]);
   useEffect(() => {
