@@ -12,7 +12,6 @@ import DigitDisplay from './DigitDisplay';
 import ResponseHandler from './ResponseHandler';
 import CameraCapture from './CameraCapture';
 import ResultsView from './ResultsView';
-
 const ExperimentController = () => {
   const dispatch = useDispatch();
   const {
@@ -23,6 +22,17 @@ const ExperimentController = () => {
     responses,
     captureConfig
   } = useSelector(state => state.experiment);
+
+  // Move the function here, before using it in JSX
+  const shouldTriggerCapture = (digitIndex) => {
+    if (!captureConfig?.enabled) return false;
+    const { firstCapture, interval } = captureConfig;
+    
+    const adjustedIndex = digitIndex + 1;
+    
+    return adjustedIndex === firstCapture || 
+      (adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0);
+  };
 
   // Add error handler
   const handleResponseError = (error) => {
@@ -47,17 +57,6 @@ const ExperimentController = () => {
   }, [trialState, experimentId]);
 
   useEffect(() => {
-    const shouldTriggerCapture = (digitIndex) => {
-      if (!captureConfig?.enabled) return false;
-      const { firstCapture, interval } = captureConfig;
-      
-      // Add 1 to digitIndex since we want to start at position 1
-      const adjustedIndex = digitIndex + 1;
-      
-      return adjustedIndex === firstCapture || 
-        (adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0);
-    };
-
     if (trialState.phase === 'running' && 
         shouldTriggerCapture(trialState.digitIndex)) {
       const handleCaptureTrigger = () => {
@@ -71,6 +70,7 @@ const ExperimentController = () => {
       handleCaptureTrigger();
     }
   }, [trialState.phase, trialState.digitIndex, captureConfig, dispatch]);
+
   useEffect(() => {
     const initializeSession = async () => {
       if (trialState.phase === 'initializing' && !experimentId) {
@@ -115,9 +115,10 @@ const ExperimentController = () => {
           shouldCapture={
             trialState.phase === 'running' &&
             !responses.captureState?.isProcessing &&
-            trialState.digitIndex % 3 === 0
+            shouldTriggerCapture(trialState.digitIndex)
           }
         />
+      
       )}
       {trialState.phase === 'start' && <StartScreen />}
       {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (
