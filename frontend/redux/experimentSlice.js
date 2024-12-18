@@ -2,17 +2,32 @@ import { createSlice } from '@reduxjs/toolkit';
 import { API_CONFIG } from '../config/api';
 
 export const responseQueueMiddleware = store => next => action => {
+  console.log('Middleware received action:', action.type);
   const result = next(action);
+  
   if (action.type === 'experiment/queueResponse') {
     const state = store.getState().experiment;
-    console.log('Response queued:', action.payload);
-    // Process immediately and clear
+    console.log('Middleware processing response:', {
+      digit: action.payload.digit,
+      trialNumber: action.payload.trialNumber,
+      position: action.payload.position
+    });
+    
     processResponses([action.payload], state.experimentId)
-      .then(() => store.dispatch(completeResponseProcessing()));
+      .then(() => {
+        console.log('Response processed, updating trial state');
+        store.dispatch(completeResponseProcessing());
+        store.dispatch(updateTrialState({
+          phase: 'trial-start',
+          responseProcessed: true
+        }));
+      })
+      .catch(error => {
+        console.error('Response processing error:', error);
+      });
   }
   return result;
-};
-const processResponses = async (responses, experimentId) => {
+};const processResponses = async (responses, experimentId) => {
   try {
     const processedResponses = responses.map(response => ({
       ...response,
@@ -33,6 +48,7 @@ const processResponses = async (responses, experimentId) => {
     console.error('Response processing error:', error);
   }
 };
+
 const experimentSlice = createSlice({
   name: 'experiment',
   initialState: {
@@ -53,14 +69,15 @@ const experimentSlice = createSlice({
     trials: [],
     isComplete: false,
     responses: {
-      byPosition: {}, // Will store responses keyed by `${trialNumber}-${digitIndex}`
+      byPosition: {},
       queue: [],
       lastProcessed: null
     },
     captureConfig: {
-      enabled: false,
-      frequency: 3,
-      quality: 'high'
+      firstCapture: 1,
+      interval: 7,
+      quality: 'high',
+      enabled: true
     },
     stateVector: {
       lastUpdate: null,
@@ -75,37 +92,41 @@ const experimentSlice = createSlice({
   },
   reducers: {
     updateTrialState: (state, action) => {
-      console.log('Reducer received action:', action.payload);
+      console.log('updateTrialState received:', action.payload);
       
+      if (action.payload.phase === 'capture') {
+        console.log('Capture phase detected, returning to running');
+        state.trialState.phase = 'running';
+        return;
+      }
+
       if (action.payload.experimentId) {
         state.experimentId = action.payload.experimentId;
         state.trialState.currentDigit = action.payload.currentDigit;
         state.trialState.trialNumber = action.payload.trialNumber - 1;
       }
-    
-      // Handle digit progression within trials
-      if (action.payload.phase === 'trial-start') {
-        const currentTrial = state.trials[state.trialState.trialNumber];
-        console.log('Trial progression debug:', {
-          currentTrialNumber: state.trialState.trialNumber,
-          currentDigitIndex: state.trialState.digitIndex,
-          sequenceLength: currentTrial?.number?.length,
-          fullSequence: currentTrial?.number
+
+      if (action.payload.phase === 'trial-start' && action.payload.responseProcessed) {
+        console.log('Processing trial progression', {
+          currentTrial: state.trialState.trialNumber,
+          currentIndex: state.trialState.digitIndex
         });
+        const currentTrial = state.trials[state.trialState.trialNumber];
         
         if (currentTrial) {
           const nextDigitIndex = state.trialState.digitIndex + 1;
+          const SEQUENCE_LENGTH = 15;
           
-          if (nextDigitIndex >= currentTrial.number.length) {
-            state.trialState.trialNumber += 1;
-            
-            // Check completion after incrementing trial number
-            if (state.trialState.trialNumber >= state.trials.length) {
+          // Handle digit progression first
+          if (nextDigitIndex >= SEQUENCE_LENGTH) {
+            // If this is the last trial, ensure we process the final response
+            if (state.trialState.trialNumber === state.trials.length - 1) {
               state.trialState.phase = 'complete';
               state.isComplete = true;
               return;
             }
-            
+            // Otherwise move to next trial
+            state.trialState.trialNumber += 1;
             state.trialState.digitIndex = 0;
             state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
           } else {
@@ -113,49 +134,20 @@ const experimentSlice = createSlice({
             state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
           }
         }
-      }
-      
+      }      
       state.trialState.phase = action.payload.phase;
-      
-      if (action.payload.metadata) {
-        state.trialState.metadata = {
-          ...state.trialState.metadata,
-          ...action.payload.metadata
-        };
-      }
-
-      state.stateVector = {
-        lastUpdate: Date.now(),
-        transitionType: action.payload.transitionType,
-        captureSync: action.payload.captureSync || false,
-        validationState: action.payload.validationState
-      };
     },
-
     queueResponse: (state, action) => {
       const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
-      // Only queue if we don't have a response for this position
       if (!state.responses.byPosition[positionKey]) {
         state.responses.byPosition[positionKey] = action.payload;
         state.responses.queue.push(action.payload);
       }
     },
-    processResponseQueue: (state) => {
-      if (state.responses.queue.length > 0) {
-        // Queue will only contain unique position responses
-        processResponses(state.responses.queue, state.experimentId);
-      }
-    },
+
     completeResponseProcessing: (state) => {
       state.responses.queue = [];
       state.responses.lastProcessed = Date.now();
-    },
-
-    updateCaptureConfig: (state, action) => {
-      state.captureConfig = {
-        ...state.captureConfig,
-        ...action.payload
-      };
     },
 
     setTrials: (state, action) => {
@@ -167,12 +159,11 @@ const experimentSlice = createSlice({
     }
   }
 });
+
 export const {
   updateTrialState,
   queueResponse,
-  processResponseQueue,
   completeResponseProcessing,
-  updateCaptureConfig,
   setTrials,
   setComplete
 } = experimentSlice.actions;

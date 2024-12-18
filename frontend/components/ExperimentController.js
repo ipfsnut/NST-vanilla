@@ -1,10 +1,9 @@
 import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import {
+import { 
   updateTrialState,
   setTrials,
-  processResponseQueue,
-  setComplete
+  setComplete 
 } from '../redux/experimentSlice';
 import { API_CONFIG } from '../config/api';
 
@@ -13,7 +12,6 @@ import DigitDisplay from './DigitDisplay';
 import ResponseHandler from './ResponseHandler';
 import CameraCapture from './CameraCapture';
 import ResultsView from './ResultsView';
-
 const ExperimentController = () => {
   const dispatch = useDispatch();
   const {
@@ -21,8 +19,20 @@ const ExperimentController = () => {
     trialState,
     trials,
     isComplete,
-    responses
+    responses,
+    captureConfig
   } = useSelector(state => state.experiment);
+
+  // Move the function here, before using it in JSX
+  const shouldTriggerCapture = (digitIndex) => {
+    if (!captureConfig?.enabled) return false;
+    const { firstCapture, interval } = captureConfig;
+    
+    const adjustedIndex = digitIndex + 1;
+    
+    return adjustedIndex === firstCapture || 
+      (adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0);
+  };
 
   // Add error handler
   const handleResponseError = (error) => {
@@ -35,7 +45,6 @@ const ExperimentController = () => {
   // Core state management and logging
   useEffect(() => {
     console.log('Phase change detected:', trialState.phase);
-
     if (trialState.phase === 'complete') {
       fetch(`${API_CONFIG.BASE_URL}/session/${experimentId}/transition`, {
         method: 'POST',
@@ -46,22 +55,22 @@ const ExperimentController = () => {
       .then(data => console.log('State transition complete:', data));
     }
   }, [trialState, experimentId]);
-  // Capture timing
-useEffect(() => {
-  // Update the capture trigger to check position within trial
-  const shouldTriggerCapture = (digitIndex) => {
-    return (digitIndex + 1) % 3 === 0;
-  };
 
-  if (trialState.phase === 'running' && 
-      trialState.digitIndex > 0 && 
-      shouldTriggerCapture(trialState.digitIndex)) {
-    console.log('Triggering capture at digit:', trialState.digitIndex);
-    dispatch(processResponseQueue());
-  }
-}, [trialState.phase, trialState.digitIndex]);
+  useEffect(() => {
+    if (trialState.phase === 'running' && 
+        shouldTriggerCapture(trialState.digitIndex)) {
+      const handleCaptureTrigger = () => {
+        console.log('Triggering capture at digit:', trialState.digitIndex + 1);
+        // Just dispatch the capture event - middleware will handle the queue
+        dispatch(updateTrialState({
+          phase: 'capture',
+          captureSync: true
+        }));
+      };
+      handleCaptureTrigger();
+    }
+  }, [trialState.phase, trialState.digitIndex, captureConfig, dispatch]);
 
-  // Session initialization
   useEffect(() => {
     const initializeSession = async () => {
       if (trialState.phase === 'initializing' && !experimentId) {
@@ -106,9 +115,10 @@ useEffect(() => {
           shouldCapture={
             trialState.phase === 'running' &&
             !responses.captureState?.isProcessing &&
-            trialState.digitIndex % 3 === 0
+            shouldTriggerCapture(trialState.digitIndex)
           }
         />
+      
       )}
       {trialState.phase === 'start' && <StartScreen />}
       {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (

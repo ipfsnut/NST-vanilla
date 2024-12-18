@@ -54,7 +54,8 @@ const startSession = async (req, res) => {
         }
       },
       experimentId,
-      trials
+      trials,
+      captureConfig: config.experimentConfig.captureConfig
     };
 
     console.log('Sending initial state to frontend:', {

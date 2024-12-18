@@ -57,9 +57,11 @@ const generateMarkovNumber = (effortLevel, config) => {
 const generateTrialNumbers = (config) => {
   console.log('Generating trial numbers with config:', JSON.stringify(config, null, 2));
 
-  const trialNumbers = [];
-  const effortLevels = config.effortLevels;
-  console.log(`Using effort levels: ${effortLevels.join(', ')}`);
+  const trialNumbers = config.trialConfig.flatMap(({ level, trials }) => {
+    console.log(`Generating ${trials} trials at effort level ${level}`);
+    
+    return Array(trials).fill().map(() => generateMarkovNumber(level, config));
+  });
 
   for (let i = 0; i < config.numTrials; i++) {
     const level = effortLevels[i % effortLevels.length];
