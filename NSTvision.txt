@@ -112,9 +112,6 @@ Session Management:
 - GET /trial-state - Get current trial state
 - GET /progress - Get experiment progress
 - GET /results - Get session results
-- PUT /session/pause - Pause experiment
-- PUT /session/resume - Resume experiment
-- PUT /session/abort - Terminate experiment early
 
 State Management:
 - GET /session/:id/status - Get detailed session status
