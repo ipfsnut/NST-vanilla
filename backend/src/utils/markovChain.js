@@ -57,30 +57,27 @@ const generateMarkovNumber = (effortLevel, config) => {
 const generateTrialNumbers = (config) => {
   console.log('Generating trial numbers with config:', JSON.stringify(config, null, 2));
 
-  const trialNumbers = [];
-  
-  config.trialConfig.forEach(({ level, trials }) => {
+  const trialNumbers = config.trialConfig.flatMap(({ level, trials }) => {
     console.log(`Generating ${trials} trials at effort level ${level}`);
     
-    for (let i = 0; i < trials; i++) {
-      trialNumbers.push(generateMarkovNumber(level, config));
-    }
+    return Array(trials).fill().map(() => generateMarkovNumber(level, config));
   });
+
+  for (let i = 0; i < config.numTrials; i++) {
+    const level = effortLevels[i % effortLevels.length];
+    console.log(`Generating trial ${i + 1} with effort level ${level}`);
+    trialNumbers.push(generateMarkovNumber(level, config));
+  }
 
   console.log(`Generated ${trialNumbers.length} trials before shuffling`);
 
-  if (config.shuffleTrials) {
-    // Fisher-Yates shuffle
-    for (let i = trialNumbers.length - 1; i > 0; i--) {
-      const j = Math.floor(Math.random() * (i + 1));
-      [trialNumbers[i], trialNumbers[j]] = [trialNumbers[j], trialNumbers[i]];
-    }
-    console.log('Trials shuffled');
-  } else {
-    console.log('Trials maintained in original order');
+  // Fisher-Yates shuffle
+  for (let i = trialNumbers.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1));
+    [trialNumbers[i], trialNumbers[j]] = [trialNumbers[j], trialNumbers[i]];
   }
 
-  console.log(`Final trial count: ${trialNumbers.length}`);
+  console.log(`Final trial count after shuffling: ${trialNumbers.length}`);
   return trialNumbers;
 };
 module.exports = { 

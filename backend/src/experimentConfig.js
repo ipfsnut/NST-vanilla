@@ -2,11 +2,13 @@ module.exports = {
   // CONFIGURATION
   // turn shuffle off or on via boolean here
   shuffleTrials: false,
-  // set number of trials per level here
+  // set number of trials per level here, 
+  // the experiment will respect the ordering 
+  // you use if shuffle is set to false
   trialConfig: [
-    { level: 1, trials: 1 },
-    { level: 4, trials: 1 },
     { level: 7, trials: 1 },
+    { level: 4, trials: 1 },
+    { level: 1, trials: 1 },
   ],
   captureConfig: {
     firstCapture: 1,    // Capture after X responses
