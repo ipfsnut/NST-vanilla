@@ -1,20 +1,39 @@
 module.exports = {
   // CONFIGURATION
-  // turn shuffle off or on via boolean here
+  mode: 'block', // 'block' or 'random'
   shuffleTrials: false,
-  // set number of trials per level here, 
-  // the experiment will respect the ordering 
-  // you use if shuffle is set to false
+  
+  // Original trial config for random mode
   trialConfig: [
     { level: 7, trials: 1 },
     { level: 4, trials: 1 },
     { level: 1, trials: 1 },
   ],
+  
+  // Block mode configuration
+  sequenceType: 'ascending', // or 'descending'
+  blockConfig: {
+    ascending: [
+      { level: 1, trials: 3 },
+      { level: 4, trials: 3 },
+      { level: 7, trials: 3 }
+    ],
+    descending: [
+      { level: 7, trials: 3 },
+      { level: 4, trials: 3 },
+      { level: 1, trials: 3 }
+    ]
+  },
+  
+  // Break duration in milliseconds
+  breakDuration: 30000,
+  
   captureConfig: {
-    firstCapture: 1,    // Capture after X responses
-    interval: 7,        // Capture every Y responses after that
+    firstCapture: 1,
+    interval: 7,
     quality: 'high'
   },
+  
   KEYS: {
     ODD: 'f',
     EVEN: 'j'

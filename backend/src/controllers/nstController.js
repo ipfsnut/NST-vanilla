@@ -23,23 +23,22 @@ const startSession = async (req, res) => {
     console.log('Generated trials[0]:', {
       number: trials[0].number,
       firstDigit: trials[0].number[0],
-      metadata: trials[0].metadata
+      metadata: trials[0].metadata,
+      blockInfo: config.experimentConfig.mode === 'block' ? {
+        blockNumber: trials[0].blockNumber,
+        sequenceType: config.experimentConfig.sequenceType
+      } : null
     });
 
     const session = await stateManager.createSession(experimentId, {
       type: 'nst',
       trials,
-      config: config.experimentConfig
-    });
-    
-    console.log('Session created with initial trial state:', {
-      currentTrial: session.state.currentTrial,
-      currentDigit: session.state.currentDigit
+      config: config.experimentConfig,
+      mode: config.experimentConfig.mode
     });
 
     await stateManager.updateSessionState(experimentId, { status: 'RUNNING' });
-    
-    // This structure maps directly to frontend experimentSlice initial state
+
     const initialState = {
       trialState: {
         currentDigit: trials[0].number[0],
@@ -50,26 +49,26 @@ const startSession = async (req, res) => {
           targetSwitches: trials[0].metadata.targetSwitches,
           actualSwitches: trials[0].metadata.actualSwitches,
           effortLevel: trials[0].effortLevel,
-          sequence: trials[0].number
+          sequence: trials[0].number,
+          ...(config.experimentConfig.mode === 'block' && {
+            blockNumber: trials[0].blockNumber,
+            sequenceType: config.experimentConfig.sequenceType,
+            trialsInBlock: trials.filter(t => t.blockNumber === trials[0].blockNumber).length
+          })
         }
       },
       experimentId,
       trials,
-      captureConfig: config.experimentConfig.captureConfig
+      captureConfig: config.experimentConfig.captureConfig,
+      mode: config.experimentConfig.mode
     };
-
-    console.log('Sending initial state to frontend:', {
-      currentDigit: initialState.trialState.currentDigit,
-      trialNumber: initialState.trialState.trialNumber
-    });
 
     res.json(initialState);
   } catch (error) {
     console.error('Start session error:', error);
     res.status(500).json({ error: error.message });
   }
-};
-const abortSession = async (req, res) => {
+};const abortSession = async (req, res) => {
   try {
     const { sessionId } = req.params;
     await stateManager.updateSessionState(sessionId, { status: 'ABORTED' });
@@ -128,13 +127,6 @@ const getTrialState = async (req, res) => {
 
     const currentTrialIndex = session.state.currentTrial;
     const currentTrial = session.state.trials[currentTrialIndex];
-
-    console.log('Trial state request:', {
-      experimentId,
-      currentTrialIndex,
-      currentDigit: currentTrial?.number[session.state.digitIndex],
-      digitIndex: session.state.digitIndex
-    });
     
     if (currentTrialIndex >= session.state.trials.length) {
       return res.json({
@@ -144,20 +136,26 @@ const getTrialState = async (req, res) => {
       });
     }
 
-    res.json({
-      trialState: {
-        currentDigit: currentTrial.number[session.state.digitIndex],
-        trialNumber: currentTrialIndex + 1,
-        digitIndex: session.state.digitIndex,
-        phase: session.state.phase,
-        metadata: {
-          effortLevel: currentTrial.effortLevel,
-          sequence: currentTrial.number,
-          targetSwitches: currentTrial.metadata.targetSwitches,
-          actualSwitches: currentTrial.metadata.actualSwitches
-        }
+    const trialState = {
+      currentDigit: currentTrial.number[session.state.digitIndex],
+      trialNumber: currentTrialIndex + 1,
+      digitIndex: session.state.digitIndex,
+      phase: session.state.phase,
+      metadata: {
+        effortLevel: currentTrial.effortLevel,
+        sequence: currentTrial.number,
+        targetSwitches: currentTrial.metadata.targetSwitches,
+        actualSwitches: currentTrial.metadata.actualSwitches,
+        ...(session.config.mode === 'block' && {
+          blockNumber: currentTrial.blockNumber,
+          sequenceType: session.config.sequenceType,
+          trialsInBlock: session.state.trials.filter(t => t.blockNumber === currentTrial.blockNumber).length,
+          trialsCompletedInBlock: session.state.responses.filter(r => r.blockNumber === currentTrial.blockNumber).length
+        })
       }
-    });
+    };
+
+    res.json({ trialState });
   } catch (error) {
     console.error('Trial state error:', error);
     res.status(500).json({ error: error.message });
@@ -207,35 +205,71 @@ const ResponsePipeline = require('../services/ResponsePipeline');
 const responsePipeline = new ResponsePipeline(stateManager, mediaHandler);
 const submitResponse = async (req, res) => {
   try {
-    const { experimentId, responses } = req.body;
-    const session = await stateManager.getSessionState(experimentId);
-    
-    if (!session) {
-      return res.status(404).json({ error: 'Session not found' });
-    }
+      const { experimentId, responses } = req.body;
+      const session = await stateManager.getSessionState(experimentId);
+      
+      if (!session) {
+          return res.status(404).json({ error: 'Session not found' });
+      }
 
-    await stateManager.updateSessionState(experimentId, { status: 'AWAIT_RESPONSE' });
-    
-    const processedResponses = responses.map(response => ({
-      ...response,
-      timestamp: response.timestamp || Date.now(),
-      positionKey: `${response.trialNumber}-${response.position}`
-    }));
+      // Process responses
+      const processedResponses = responses.map(response => ({
+          ...response,
+          timestamp: response.timestamp || Date.now(),
+          positionKey: `${response.trialNumber}-${response.position}`,
+          blockNumber: session.state.currentBlock
+      }));
 
-    // Record each response in its unique position
-    for (const response of processedResponses) {
-      await stateManager.recordResponse(experimentId, response);
-    }
+      for (const response of processedResponses) {
+          await stateManager.recordResponse(experimentId, response);
+      }
 
-    res.json({ 
-      success: true,
-      processed: processedResponses.length
-    });
+      // Get fresh session state and check block completion
+      const updatedSession = await stateManager.getSessionState(experimentId);
+      const blockComplete = await stateManager.isBlockComplete(updatedSession);
+      
+      // Only check for block completion if we're not already in a break
+      if (blockComplete && updatedSession.state.status !== 'BLOCK_COMPLETE' && updatedSession.state.status !== 'BREAK') {
+          const currentBlock = updatedSession.state.currentBlock;
+          const sequenceType = config.experimentConfig.sequenceType;
+          const totalBlocks = config.experimentConfig.blockConfig[sequenceType].length;
+
+          console.log('Block transition check:', {
+              currentBlock,
+              totalBlocks,
+              status: updatedSession.state.status
+          });
+
+          if (currentBlock < totalBlocks) {
+              await stateManager.updateSessionState(experimentId, {
+                  status: 'BREAK',
+                  currentBlock: currentBlock + 1
+              });
+
+              return res.json({
+                  success: true,
+                  blockComplete: true,
+                  nextBlock: currentBlock + 1,
+                  breakDuration: config.experimentConfig.breakDuration,
+                  totalBlocks,
+                  remainingBlocks: totalBlocks - (currentBlock + 1)
+              });
+          }
+      }
+
+      res.json({ 
+          success: true,
+          processed: processedResponses.length
+      });
   } catch (error) {
-    console.error('Response storage error:', error);
-    res.status(500).json({ error: error.message });
+      console.error('Response storage error:', error);
+      res.status(500).json({ error: error.message });
   }
 };
+
+
+
+
 const CAPTURE_SETTINGS = {
   width: 640,
   height: 480,
@@ -270,7 +304,8 @@ const submitCapture = async (req, res) => {
         width: CAPTURE_SETTINGS.width,
         height: CAPTURE_SETTINGS.height,
         quality: CAPTURE_SETTINGS.quality,
-        imageType: CAPTURE_SETTINGS.imageType
+        imageType: CAPTURE_SETTINGS.imageType,
+        settings: CAPTURE_SETTINGS
       }
     );
 
@@ -491,7 +526,13 @@ const getProgress = async (req, res) => {
       totalTrials: state.state.trials.length,
       status: state.state.status,
       percentComplete: Math.round((state.state.currentTrial / state.state.trials.length) * 100),
-      lastActivity: state.lastActivity
+      lastActivity: state.lastActivity,
+      blockProgress: state.config.mode === 'block' ? {
+        currentBlock: state.state.currentBlock,
+        totalBlocks: state.config.blockConfig[state.config.sequenceType].length,
+        trialsInCurrentBlock: state.state.trials.filter(t => t.blockNumber === state.state.currentBlock).length,
+        completedTrialsInBlock: state.state.responses.filter(r => r.blockNumber === state.state.currentBlock).length
+      } : null
     };
 
     res.json({ progress });
@@ -499,7 +540,6 @@ const getProgress = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
-
 const exportFormatters = require('../utils/exportFormatters');
 const exportResults = async (req, res) => {
   try {

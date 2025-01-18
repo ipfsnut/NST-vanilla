@@ -1,13 +1,24 @@
-const VALID_STATES = ['INIT', 'RUNNING', 'TRIAL_START', 'AWAIT_RESPONSE', 'COMPLETE', 'ABORTED'];
+const VALID_STATES = [
+  'INIT', 
+  'RUNNING', 
+  'TRIAL_START', 
+  'AWAIT_RESPONSE', 
+  'BLOCK_COMPLETE',  // New state
+  'BREAK',           // New state
+  'COMPLETE', 
+  'ABORTED'
+];
+
 const VALID_TRANSITIONS = {
   'INIT': ['RUNNING'],
   'RUNNING': ['TRIAL_START', 'ABORTED'],
   'TRIAL_START': ['AWAIT_RESPONSE'],
-  'AWAIT_RESPONSE': ['TRIAL_START', 'COMPLETE'],
+  'AWAIT_RESPONSE': ['TRIAL_START', 'BLOCK_COMPLETE'],
+  'BLOCK_COMPLETE': ['BREAK', 'COMPLETE'],
+  'BREAK': ['RUNNING'],
   'COMPLETE': [],
   'ABORTED': []
 };
-
 class StateManager {
   constructor() {
     this.sessions = new Map();
@@ -25,6 +36,7 @@ class StateManager {
       startTime: Date.now(),
       lastActivity: Date.now(),
       state: {
+        currentBlock: 1,
         currentTrial: 0,
         digitIndex: 0,
         trials: experimentConfig.trials,
@@ -32,6 +44,12 @@ class StateManager {
         status: 'INIT'
       }
     };
+
+    console.log('Session created with block tracking:', {
+      sessionId,
+      currentBlock: session.state.currentBlock,
+      totalTrials: session.state.trials.length
+    });
 
     this.sessions.set(sessionId, session);
     this.stateTransitions.set(sessionId, []);
@@ -50,37 +68,45 @@ class StateManager {
     if (!session) return null;
     
     return {
-      experimentState: session.state,
+      experimentState: {
+        ...session.state,
+        blockMetrics: {
+          currentBlock: session.state.currentBlock,
+          trialsInBlock: this.getTrialsInCurrentBlock(session),
+          blockStartTime: session.state.blockStartTime || session.startTime
+        }
+      },
       captureState: this.captures.get(sessionId),
       responseState: session.state.responses,
       lastUpdate: Date.now(),
       metadata: {
         trialNumber: session.state.currentTrial,
-        digitIndex: session.state.digitIndex
+        digitIndex: session.state.digitIndex,
+        blockNumber: session.state.currentBlock
       }
     };
   }
+
   updateSessionState(sessionId, updates) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    // Handle trial progression
-    if (updates.phase === 'trial-start') {
-      const currentTrial = session.state.trials[session.state.currentTrial];
-      
-      if (currentTrial?.number) {
-        const sequenceLength = currentTrial.number.length;
-        // Complete only after the last digit of trial 14
-        if (session.state.currentTrial === session.state.trials.length - 1 && 
-            session.state.digitIndex >= sequenceLength - 1) {
-          return this.completeTrialSequence(sessionId);
-        }
+    // Handle block transitions in block mode
+    if (session.experimentConfig.mode === 'block') {
+      if (updates.phase === 'trial-start') {
+        const currentTrial = session.state.trials[session.state.currentTrial];
+        const currentBlock = currentTrial?.blockNumber;
         
-        if (session.state.digitIndex >= sequenceLength - 1) {
-          session.state.currentTrial++;
-          session.state.digitIndex = 0;
-        } else {
-          session.state.digitIndex++;
+        // Check for block completion
+        if (this.isBlockComplete(session)) {
+          if (currentBlock < session.experimentConfig.blockConfig[session.experimentConfig.sequenceType].length) {
+            return {
+              status: 'BLOCK_COMPLETE',
+              nextBlock: currentBlock + 1,
+              breakDuration: session.experimentConfig.breakDuration
+            };
+          }
+          return this.completeTrialSequence(sessionId);
         }
       }
     }
@@ -92,6 +118,42 @@ class StateManager {
     };
     
     return session;
+  }
+
+  isBlockComplete(session) {
+    if (!session?.state?.trials) return false;
+    
+    const currentTrial = session.state.trials[session.state.currentTrial];
+    if (!currentTrial) return false;
+    
+    // Get all trials for current block
+    const trialsInBlock = session.state.trials.filter(
+        trial => trial.blockNumber === currentTrial.blockNumber
+    );
+    
+    // Count completed trials by looking at unique trial numbers in responses
+    const completedTrialNumbers = new Set(
+        session.state.responses
+            .filter(r => r.blockNumber === currentTrial.blockNumber)
+            .map(r => Math.floor(r.positionKey.split('-')[0]))
+    );
+
+    console.log('Block completion check:', {
+        blockNumber: currentTrial.blockNumber,
+        trialsInBlock: trialsInBlock.length,
+        completedTrials: completedTrialNumbers.size,
+        uniqueTrials: Array.from(completedTrialNumbers)
+    });
+    
+    return completedTrialNumbers.size >= trialsInBlock.length;
+}
+
+
+  getTrialsInCurrentBlock(session) {
+    const currentTrial = session.state.trials[session.state.currentTrial];
+    return session.state.trials.filter(
+      trial => trial.blockNumber === currentTrial.blockNumber
+    ).length;
   }
 
   completeTrialSequence(sessionId) {
@@ -106,6 +168,7 @@ class StateManager {
       }
     };
   }  
+
   recordResponse(sessionId, responseData) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
@@ -139,7 +202,10 @@ class StateManager {
       ordered: session.state.responses || [],
       total: session.state.responses?.length || 0
     };
-  }  async addCapture(sessionId, captureData) {
+
+  }  
+
+  async addCapture(sessionId, captureData) {
     const captures = this.captures.get(sessionId) || [];
     const newCapture = {
       timestamp: captureData.metadata.timestamp,

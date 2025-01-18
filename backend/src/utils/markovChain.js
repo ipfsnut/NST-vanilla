@@ -56,29 +56,41 @@ const generateMarkovNumber = (effortLevel, config) => {
  */
 const generateTrialNumbers = (config) => {
   console.log('Generating trial numbers with config:', JSON.stringify(config, null, 2));
-
-  const trialNumbers = config.trialConfig.flatMap(({ level, trials }) => {
-    console.log(`Generating ${trials} trials at effort level ${level}`);
+  
+  if (config.mode === 'block') {
+    const sequence = config.sequenceType;
+    const blocks = config.blockConfig[sequence];
+    let trials = [];
     
-    return Array(trials).fill().map(() => generateMarkovNumber(level, config));
+    blocks.forEach((block, blockIndex) => {
+      for (let i = 0; i < block.trials; i++) {
+        const trial = generateMarkovNumber(block.level, config);
+        trial.blockNumber = blockIndex + 1;
+        trial.blockType = sequence;
+        trials.push(trial);
+      }
+    });
+    
+    console.log(`Generated ${trials.length} trials in ${blocks.length} blocks (${sequence} sequence)`);
+    return trials;
+  }
+  
+  // Original random/sequential trial generation
+  let trials = [];
+  config.trialConfig.forEach(level => {
+    for (let i = 0; i < level.trials; i++) {
+      trials.push(generateMarkovNumber(level.level, config));
+    }
+    console.log(`Generating ${level.trials} trials at effort level ${level.level}`);
   });
 
-  for (let i = 0; i < config.numTrials; i++) {
-    const level = effortLevels[i % effortLevels.length];
-    console.log(`Generating trial ${i + 1} with effort level ${level}`);
-    trialNumbers.push(generateMarkovNumber(level, config));
+  console.log(`Generated ${trials.length} trials before shuffling`);
+  if (config.shuffleTrials) {
+    trials = shuffleArray(trials);
   }
-
-  console.log(`Generated ${trialNumbers.length} trials before shuffling`);
-
-  // Fisher-Yates shuffle
-  for (let i = trialNumbers.length - 1; i > 0; i--) {
-    const j = Math.floor(Math.random() * (i + 1));
-    [trialNumbers[i], trialNumbers[j]] = [trialNumbers[j], trialNumbers[i]];
-  }
-
-  console.log(`Final trial count after shuffling: ${trialNumbers.length}`);
-  return trialNumbers;
+  console.log(`Final trial count after shuffling: ${trials.length}`);
+  
+  return trials;
 };
 module.exports = { 
   generateMarkovNumber,

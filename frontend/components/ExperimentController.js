@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
 import { 
   updateTrialState,
@@ -12,6 +12,9 @@ import DigitDisplay from './DigitDisplay';
 import ResponseHandler from './ResponseHandler';
 import CameraCapture from './CameraCapture';
 import ResultsView from './ResultsView';
+import BreakScreen from './BreakScreen';
+
+
 const ExperimentController = () => {
   const dispatch = useDispatch();
   const {
@@ -32,6 +35,26 @@ const ExperimentController = () => {
     
     return adjustedIndex === firstCapture || 
       (adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0);
+  };
+
+  const [showBreakScreen, setShowBreakScreen] = useState(false);
+  const [breakTimeRemaining, setBreakTimeRemaining] = useState(0);  
+
+  const handleBlockComplete = (breakDuration) => {
+    setShowBreakScreen(true);
+    setBreakTimeRemaining(breakDuration / 1000);
+    
+    const timer = setInterval(() => {
+      setBreakTimeRemaining(prev => {
+        if (prev <= 1) {
+          clearInterval(timer);
+          setShowBreakScreen(false);
+          dispatch(updateTrialState({ phase: 'running' }));
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
   };
 
   // Add error handler
@@ -107,44 +130,57 @@ const ExperimentController = () => {
     }
   }, [trialState.phase, dispatch]);
 
+  useEffect(() => {
+    if (trialState.phase === 'BLOCK_COMPLETE') {
+      handleBlockComplete(config.breakDuration);
+    }
+  }, [trialState.phase]);
+
   return (
     <div className="experiment-wrapper">
-      {experimentId && (
-        <CameraCapture
-          experimentId={experimentId}
-          shouldCapture={
-            trialState.phase === 'running' &&
-            !responses.captureState?.isProcessing &&
-            shouldTriggerCapture(trialState.digitIndex)
-          }
-        />
-      
-      )}
-      {trialState.phase === 'start' && <StartScreen />}
-      {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (
+      {showBreakScreen ? (
+        <BreakScreen timeRemaining={breakTimeRemaining} />
+      ) : (
         <>
-          <DigitDisplay />
-          {experimentId && trials.length > 0 && (
-            <ResponseHandler
+          {experimentId && (
+            <CameraCapture
               experimentId={experimentId}
-              onError={handleResponseError}
+              shouldCapture={
+                trialState.phase === 'running' &&
+                !responses.captureState?.isProcessing &&
+                shouldTriggerCapture(trialState.digitIndex)
+              }
             />
           )}
+          {trialState.phase === 'start' && <StartScreen />}
+          {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (
+            <>
+              <DigitDisplay />
+              {experimentId && trials.length > 0 && (
+                <ResponseHandler
+                  experimentId={experimentId}
+                  onError={handleResponseError}
+                  onBlockComplete={handleBlockComplete}
+                />
+              )}
+            </>
+          )}
+          {trialState.phase === 'complete' && (
+            <ResultsView
+              experimentId={experimentId}
+              onExportComplete={() => dispatch(setComplete(true))}
+            />
+          )}
+          {trialState.phase === 'error' && (
+            <div className="error-message">
+              An error occurred. Please restart the experiment.
+            </div>
+          )}
         </>
-      )}
-      {trialState.phase === 'complete' && (
-        <ResultsView
-          experimentId={experimentId}
-          onExportComplete={() => dispatch(setComplete(true))}
-        />
-      )}
-      {trialState.phase === 'error' && (
-        <div className="error-message">
-          An error occurred. Please restart the experiment.
-        </div>
       )}
     </div>
   );
 };
 
 export default ExperimentController;
+

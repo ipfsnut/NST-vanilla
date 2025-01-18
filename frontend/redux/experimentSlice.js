@@ -48,7 +48,6 @@ export const responseQueueMiddleware = store => next => action => {
     console.error('Response processing error:', error);
   }
 };
-
 const experimentSlice = createSlice({
   name: 'experiment',
   initialState: {
@@ -88,6 +87,12 @@ const experimentSlice = createSlice({
     captureState: {
       lastCaptureTrial: 0,
       isProcessing: false
+    },
+    currentBlock: null,
+    phase: null,
+    breakDuration: null,
+    config: {
+      breakDuration: null
     }
   },
   reducers: {
@@ -106,33 +111,42 @@ const experimentSlice = createSlice({
         state.trialState.trialNumber = action.payload.trialNumber - 1;
       }
 
-      if (action.payload.phase === 'trial-start' && action.payload.responseProcessed) {
-        console.log('Processing trial progression', {
-          currentTrial: state.trialState.trialNumber,
-          currentIndex: state.trialState.digitIndex
-        });
-        const currentTrial = state.trials[state.trialState.trialNumber];
-        
-        if (currentTrial) {
-          const nextDigitIndex = state.trialState.digitIndex + 1;
-          const SEQUENCE_LENGTH = 15;
+      if (action.payload.phase === 'trial-start') {
+        if (action.payload.responseProcessed) {
+          console.log('Processing trial progression', {
+            currentTrial: state.trialState.trialNumber,
+            currentIndex: state.trialState.digitIndex
+          });
+          const currentTrial = state.trials[state.trialState.trialNumber];
           
-          // Handle digit progression first
-          if (nextDigitIndex >= SEQUENCE_LENGTH) {
-            // If this is the last trial, ensure we process the final response
-            if (state.trialState.trialNumber === state.trials.length - 1) {
-              state.trialState.phase = 'complete';
-              state.isComplete = true;
-              return;
+          if (currentTrial) {
+            const nextDigitIndex = state.trialState.digitIndex + 1;
+            const SEQUENCE_LENGTH = 15;
+            
+            // Handle digit progression first
+            if (nextDigitIndex >= SEQUENCE_LENGTH) {
+              // If this is the last trial, ensure we process the final response
+              if (state.trialState.trialNumber === state.trials.length - 1) {
+                state.trialState.phase = 'complete';
+                state.isComplete = true;
+                return;
+              }
+              // Otherwise move to next trial
+              state.trialState.trialNumber += 1;
+              state.trialState.digitIndex = 0;
+              state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
+            } else {
+              state.trialState.digitIndex = nextDigitIndex;
+              state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
             }
-            // Otherwise move to next trial
-            state.trialState.trialNumber += 1;
-            state.trialState.digitIndex = 0;
-            state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
-          } else {
-            state.trialState.digitIndex = nextDigitIndex;
-            state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
           }
+        }
+
+        const currentTrial = state.trials[state.trialState.currentTrial];
+        if (currentTrial?.blockNumber !== state.currentBlock) {
+          // Block transition detected
+          state.phase = 'BLOCK_COMPLETE';
+          state.breakDuration = state.config.breakDuration;
         }
       }      
       state.trialState.phase = action.payload.phase;
@@ -159,7 +173,6 @@ const experimentSlice = createSlice({
     }
   }
 });
-
 export const {
   updateTrialState,
   queueResponse,
