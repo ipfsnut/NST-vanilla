@@ -37,6 +37,7 @@ class StateManager {
       lastActivity: Date.now(),
       state: {
         currentBlock: 1,
+        blockTransitions: 0,
         currentTrial: 0,
         digitIndex: 0,
         trials: experimentConfig.trials,
@@ -55,7 +56,6 @@ class StateManager {
     this.stateTransitions.set(sessionId, []);
     return session;
   }
-
   getSessionState(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
@@ -120,34 +120,37 @@ class StateManager {
     return session;
   }
 
-  isBlockComplete(session) {
-    if (!session?.state?.trials) return false;
+    isBlockComplete(session) {
+        const currentBlock = session.state.currentBlock;
+        const RESPONSES_PER_TRIAL = 15;
+        const TRIALS_PER_BLOCK = 3;
+        const TOTAL_RESPONSES_NEEDED = RESPONSES_PER_TRIAL * TRIALS_PER_BLOCK;
     
-    const currentTrial = session.state.trials[session.state.currentTrial];
-    if (!currentTrial) return false;
+        // Get responses for current block
+        const blockResponses = session.state.responses.filter(
+            r => r.blockNumber === currentBlock
+        );
     
-    // Get all trials for current block
-    const trialsInBlock = session.state.trials.filter(
-        trial => trial.blockNumber === currentTrial.blockNumber
-    );
+        // Check total response count
+        if (blockResponses.length !== TOTAL_RESPONSES_NEEDED) {
+            return false;
+        }
     
-    // Count completed trials by looking at unique trial numbers in responses
-    const completedTrialNumbers = new Set(
-        session.state.responses
-            .filter(r => r.blockNumber === currentTrial.blockNumber)
-            .map(r => Math.floor(r.positionKey.split('-')[0]))
-    );
-
-    console.log('Block completion check:', {
-        blockNumber: currentTrial.blockNumber,
-        trialsInBlock: trialsInBlock.length,
-        completedTrials: completedTrialNumbers.size,
-        uniqueTrials: Array.from(completedTrialNumbers)
-    });
+        // Verify each trial has exactly 15 responses
+        const trialResponseCounts = new Map();
+        blockResponses.forEach(response => {
+            const trialNum = Math.floor(response.positionKey.split('-')[0]);
+            trialResponseCounts.set(trialNum, 
+                (trialResponseCounts.get(trialNum) || 0) + 1
+            );
+        });
     
-    return completedTrialNumbers.size >= trialsInBlock.length;
-}
-
+        // Verify we have exactly 3 trials with 15 responses each
+        const validTrials = Array.from(trialResponseCounts.values())
+            .filter(count => count === RESPONSES_PER_TRIAL);
+        
+        return validTrials.length === TRIALS_PER_BLOCK;
+    }
 
   getTrialsInCurrentBlock(session) {
     const currentTrial = session.state.trials[session.state.currentTrial];
@@ -169,29 +172,25 @@ class StateManager {
     };
   }  
 
-  recordResponse(sessionId, responseData) {
-    const session = this.sessions.get(sessionId);
-    if (!session) return null;
+recordResponse(sessionId, responseData) {
+  try {
+      const session = this.sessions.get(sessionId);
+      if (!session) return null;
 
-    // Store response in position-keyed object
-    if (!session.state.responsesByPosition) {
-      session.state.responsesByPosition = {};
-    }
+      if (!session.state.responsesByPosition) {
+          session.state.responsesByPosition = {};
+      }
 
-    const positionKey = responseData.positionKey;
-    if (!session.state.responsesByPosition[positionKey]) {
+      const positionKey = responseData.positionKey;
       session.state.responsesByPosition[positionKey] = responseData;
       session.state.responses.push(responseData);
-    }
 
-    console.log('Response recorded:', {
-      sessionId,
-      positionKey,
-      totalResponses: session.state.responses.length
-    });
-
-    return session.state;
+      return session.state;
+  } catch (error) {
+      console.error('State manager error:', error);
+      throw new Error('Failed to record response');
   }
+}
 
   getSessionResponses(sessionId) {
     const session = this.sessions.get(sessionId);

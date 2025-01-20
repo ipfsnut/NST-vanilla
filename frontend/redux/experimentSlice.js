@@ -97,6 +97,12 @@ const experimentSlice = createSlice({
   },
   reducers: {
     updateTrialState: (state, action) => {
+      if (action.payload.phase === 'BLOCK_COMPLETE') {
+        state.phase = 'BLOCK_COMPLETE';
+        state.breakDuration = state.config.breakDuration;
+        return;
+      }
+
       console.log('updateTrialState received:', action.payload);
       
       if (action.payload.phase === 'capture') {
@@ -150,8 +156,7 @@ const experimentSlice = createSlice({
         }
       }      
       state.trialState.phase = action.payload.phase;
-    },
-    queueResponse: (state, action) => {
+    },    queueResponse: (state, action) => {
       const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
       if (!state.responses.byPosition[positionKey]) {
         state.responses.byPosition[positionKey] = action.payload;

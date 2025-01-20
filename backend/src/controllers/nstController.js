@@ -204,72 +204,50 @@ const getNextDigit = async (req, res) => {
 const ResponsePipeline = require('../services/ResponsePipeline');
 const responsePipeline = new ResponsePipeline(stateManager, mediaHandler);
 const submitResponse = async (req, res) => {
-  try {
-      const { experimentId, responses } = req.body;
-      const session = await stateManager.getSessionState(experimentId);
-      
-      if (!session) {
-          return res.status(404).json({ error: 'Session not found' });
-      }
+    try {
+        const { experimentId, responses } = req.body;
+        const session = await stateManager.getSessionState(experimentId);
+        
+        // Process responses
+        const processedResponses = responses.map(response => ({
+            ...response,
+            timestamp: response.timestamp || Date.now(),
+            positionKey: `${response.trialNumber}-${response.position}`,
+            blockNumber: session.state.currentBlock
+        }));
 
-      // Process responses
-      const processedResponses = responses.map(response => ({
-          ...response,
-          timestamp: response.timestamp || Date.now(),
-          positionKey: `${response.trialNumber}-${response.position}`,
-          blockNumber: session.state.currentBlock
-      }));
+        // Record responses
+        for (const response of processedResponses) {
+            await stateManager.recordResponse(experimentId, response);
+        }
 
-      for (const response of processedResponses) {
-          await stateManager.recordResponse(experimentId, response);
-      }
+        // Get fresh session state and check block completion
+        const updatedSession = await stateManager.getSessionState(experimentId);
+        if (stateManager.isBlockComplete(updatedSession)) {
+            const currentBlock = updatedSession.state.currentBlock;
+            const totalBlocks = updatedSession.experimentConfig.blockConfig[updatedSession.experimentConfig.sequenceType].length;
+            
+            if (currentBlock < totalBlocks) {
+                await stateManager.updateSessionState(experimentId, {
+                    status: 'BLOCK_COMPLETE',
+                    phase: 'BLOCK_COMPLETE'
+                });
+                
+                return res.json({
+                    success: true,
+                    blockComplete: true,
+                    nextBlock: currentBlock + 1,
+                    breakDuration: updatedSession.experimentConfig.breakDuration
+                });
+            }
+        }
 
-      // Get fresh session state and check block completion
-      const updatedSession = await stateManager.getSessionState(experimentId);
-      const blockComplete = await stateManager.isBlockComplete(updatedSession);
-      
-      // Only check for block completion if we're not already in a break
-      if (blockComplete && updatedSession.state.status !== 'BLOCK_COMPLETE' && updatedSession.state.status !== 'BREAK') {
-          const currentBlock = updatedSession.state.currentBlock;
-          const sequenceType = config.experimentConfig.sequenceType;
-          const totalBlocks = config.experimentConfig.blockConfig[sequenceType].length;
-
-          console.log('Block transition check:', {
-              currentBlock,
-              totalBlocks,
-              status: updatedSession.state.status
-          });
-
-          if (currentBlock < totalBlocks) {
-              await stateManager.updateSessionState(experimentId, {
-                  status: 'BREAK',
-                  currentBlock: currentBlock + 1
-              });
-
-              return res.json({
-                  success: true,
-                  blockComplete: true,
-                  nextBlock: currentBlock + 1,
-                  breakDuration: config.experimentConfig.breakDuration,
-                  totalBlocks,
-                  remainingBlocks: totalBlocks - (currentBlock + 1)
-              });
-          }
-      }
-
-      res.json({ 
-          success: true,
-          processed: processedResponses.length
-      });
-  } catch (error) {
-      console.error('Response storage error:', error);
-      res.status(500).json({ error: error.message });
-  }
+        res.json({ success: true, processed: processedResponses.length });
+    } catch (error) {
+        console.error('Response submission error:', error);
+        res.status(500).json({ error: error.message });
+    }
 };
-
-
-
-
 const CAPTURE_SETTINGS = {
   width: 640,
   height: 480,
