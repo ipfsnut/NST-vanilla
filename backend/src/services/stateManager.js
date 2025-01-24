@@ -1,24 +1,26 @@
 const VALID_STATES = [
-  'INIT', 
-  'RUNNING', 
-  'TRIAL_START', 
-  'AWAIT_RESPONSE', 
-  'BLOCK_COMPLETE',  // New state
-  'BREAK',           // New state
-  'COMPLETE', 
+  'INIT',
+  'RUNNING',
+  'PRESENTING_DIGIT',
+  'AWAIT_RESPONSE',
+  'DIGIT_BREAK',
+  'TRIAL_BREAK',
+  'COMPLETE',
   'ABORTED'
 ];
 
 const VALID_TRANSITIONS = {
   'INIT': ['RUNNING'],
-  'RUNNING': ['TRIAL_START', 'ABORTED'],
-  'TRIAL_START': ['AWAIT_RESPONSE'],
-  'AWAIT_RESPONSE': ['TRIAL_START', 'BLOCK_COMPLETE'],
-  'BLOCK_COMPLETE': ['BREAK', 'COMPLETE'],
-  'BREAK': ['RUNNING'],
+  'RUNNING': ['PRESENTING_DIGIT', 'COMPLETE', 'ABORTED'],
+  'PRESENTING_DIGIT': ['AWAIT_RESPONSE'],
+  'AWAIT_RESPONSE': ['DIGIT_BREAK', 'TRIAL_BREAK'],
+  'DIGIT_BREAK': ['PRESENTING_DIGIT'],
+  'TRIAL_BREAK': ['PRESENTING_DIGIT'],
   'COMPLETE': [],
   'ABORTED': []
 };
+
+
 class StateManager {
   constructor() {
     this.sessions = new Map();
@@ -36,27 +38,22 @@ class StateManager {
       startTime: Date.now(),
       lastActivity: Date.now(),
       state: {
-        currentBlock: 1,
-        blockTransitions: 0,
         currentTrial: 0,
         digitIndex: 0,
         trials: experimentConfig.trials,
         responses: [],
-        status: 'INIT'
+        status: 'INIT',
+        breakState: {
+          startTime: null,
+          duration: null,
+          type: null
+        }
       }
     };
-
-    console.log('Session created with block tracking:', {
-      sessionId,
-      currentBlock: session.state.currentBlock,
-      totalTrials: session.state.trials.length
-    });
-
     this.sessions.set(sessionId, session);
     this.stateTransitions.set(sessionId, []);
     return session;
-  }
-  getSessionState(sessionId) {
+  }  getSessionState(sessionId) {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
     session.lastActivity = Date.now();
@@ -70,19 +67,13 @@ class StateManager {
     return {
       experimentState: {
         ...session.state,
-        blockMetrics: {
-          currentBlock: session.state.currentBlock,
-          trialsInBlock: this.getTrialsInCurrentBlock(session),
-          blockStartTime: session.state.blockStartTime || session.startTime
-        }
       },
       captureState: this.captures.get(sessionId),
       responseState: session.state.responses,
       lastUpdate: Date.now(),
       metadata: {
         trialNumber: session.state.currentTrial,
-        digitIndex: session.state.digitIndex,
-        blockNumber: session.state.currentBlock
+        digitIndex: session.state.digitIndex
       }
     };
   }
@@ -91,23 +82,30 @@ class StateManager {
     const session = this.sessions.get(sessionId);
     if (!session) return null;
 
-    // Handle block transitions in block mode
-    if (session.experimentConfig.mode === 'block') {
-      if (updates.phase === 'trial-start') {
-        const currentTrial = session.state.trials[session.state.currentTrial];
-        const currentBlock = currentTrial?.blockNumber;
-        
-        // Check for block completion
-        if (this.isBlockComplete(session)) {
-          if (currentBlock < session.experimentConfig.blockConfig[session.experimentConfig.sequenceType].length) {
-            return {
-              status: 'BLOCK_COMPLETE',
-              nextBlock: currentBlock + 1,
-              breakDuration: session.experimentConfig.breakDuration
-            };
-          }
-          return this.completeTrialSequence(sessionId);
+    if (updates.status) {
+      // Log transition for debugging
+      console.log(`State transition: ${session.state.status} -> ${updates.status}`);
+      
+      // Record transition in stateTransitions Map
+      const transitions = this.stateTransitions.get(sessionId) || [];
+      transitions.push({
+        from: session.state.status,
+        to: updates.status,
+        timestamp: Date.now()
+      });
+      this.stateTransitions.set(sessionId, transitions);
+
+      // Validate transition
+      if (!this.isValidTransition(session.state.status, updates.status)) {
+        throw new Error(`Invalid state transition: ${session.state.status} -> ${updates.status}`);
+      }
+
+      // Handle break state cleanup when transitioning to PRESENTING_DIGIT
+      if (updates.status === 'PRESENTING_DIGIT' && session.state.breakState?.type) {
+        if (!this.isBreakComplete(sessionId)) {
+          return session;
         }
+        session.state.breakState = null;
       }
     }
 
@@ -116,49 +114,29 @@ class StateManager {
       ...updates,
       lastActivity: Date.now()
     };
-    
+
     return session;
   }
+  startBreak(sessionId, breakType, duration) {
+    const session = this.sessions.get(sessionId);
+    if (!session) return null;
 
-    isBlockComplete(session) {
-        const currentBlock = session.state.currentBlock;
-        const RESPONSES_PER_TRIAL = 15;
-        const TRIALS_PER_BLOCK = 3;
-        const TOTAL_RESPONSES_NEEDED = RESPONSES_PER_TRIAL * TRIALS_PER_BLOCK;
-    
-        // Get responses for current block
-        const blockResponses = session.state.responses.filter(
-            r => r.blockNumber === currentBlock
-        );
-    
-        // Check total response count
-        if (blockResponses.length !== TOTAL_RESPONSES_NEEDED) {
-            return false;
-        }
-    
-        // Verify each trial has exactly 15 responses
-        const trialResponseCounts = new Map();
-        blockResponses.forEach(response => {
-            const trialNum = Math.floor(response.positionKey.split('-')[0]);
-            trialResponseCounts.set(trialNum, 
-                (trialResponseCounts.get(trialNum) || 0) + 1
-            );
-        });
-    
-        // Verify we have exactly 3 trials with 15 responses each
-        const validTrials = Array.from(trialResponseCounts.values())
-            .filter(count => count === RESPONSES_PER_TRIAL);
-        
-        return validTrials.length === TRIALS_PER_BLOCK;
-    }
-
-  getTrialsInCurrentBlock(session) {
-    const currentTrial = session.state.trials[session.state.currentTrial];
-    return session.state.trials.filter(
-      trial => trial.blockNumber === currentTrial.blockNumber
-    ).length;
+    session.state.status = breakType;
+    session.state.breakState = {
+      startTime: Date.now(),
+      duration: duration,
+      type: breakType
+    };
+  
+    return session;
+  }  
+  isBreakComplete(sessionId) {
+    const session = this.sessions.get(sessionId);
+    if (!session?.state.breakState?.startTime) return true;
+  
+    const elapsed = Date.now() - session.state.breakState.startTime;
+    return elapsed >= session.state.breakState.duration;
   }
-
   completeTrialSequence(sessionId) {
     const session = this.sessions.get(sessionId);
     return {
@@ -172,6 +150,8 @@ class StateManager {
     };
   }  
 
+
+  
 recordResponse(sessionId, responseData) {
   try {
       const session = this.sessions.get(sessionId);
@@ -243,3 +223,4 @@ recordResponse(sessionId, responseData) {
 }
 
 module.exports = new StateManager();
+

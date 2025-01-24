@@ -11,15 +11,20 @@ const StartScreen = () => {
     checkCameraAvailability(dispatch);
   }, [dispatch]);
 
-  const handleKeyPress = (event) => {
-    console.log('Key pressed:', event.key);
-    if (event.key === 'f' || event.key === 'j') {
-      console.log('Dispatching initialization');
-      dispatch(updateTrialState({
-        phase: 'initializing',
-        transitionType: 'user-start'
-      }));
-    }
+  const handleStart = async () => {
+    console.log('Initializing experiment');
+    const response = await initializeExperiment();
+    
+    // Set trials first
+    dispatch(setTrials(response.trials));
+    
+    // Update trial state to match our new state model
+    dispatch(updateTrialState({
+      phase: 'PRESENTING_DIGIT',
+      experimentId: response.experimentId,
+      currentDigit: response.trialState.currentDigit,
+      trialNumber: response.trialState.trialNumber
+    }));
   };
 
   useEffect(() => {

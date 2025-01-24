@@ -1,0 +1,44 @@
+.digit-break-screen {
+  background: #000;
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 100;
+}
+
+.trial-break-screen {
+  background: #0a0a0a;
+  color: #00ff00;
+  padding: 2rem;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  height: 100vh;
+}
+
+.score-display {
+  font-family: 'Courier New', monospace;
+  text-align: center;
+  margin: 2rem 0;
+}
+
+.score-value {
+  font-size: 2.5rem;
+  color: #00ff00;
+  text-shadow: 0 0 10px #00ff00;
+}
+
+.progress-bar {
+  width: 80%;
+  height: 4px;
+  background: #333;
+  margin-top: 2rem;
+}
+
+.progress {
+  height: 100%;
+  background: #00ff00;
+  transition: width 1s linear;
+}

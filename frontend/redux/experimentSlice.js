@@ -27,7 +27,9 @@ export const responseQueueMiddleware = store => next => action => {
       });
   }
   return result;
-};const processResponses = async (responses, experimentId) => {
+};
+
+const processResponses = async (responses, experimentId) => {
   try {
     const processedResponses = responses.map(response => ({
       ...response,
@@ -48,6 +50,7 @@ export const responseQueueMiddleware = store => next => action => {
     console.error('Response processing error:', error);
   }
 };
+
 const experimentSlice = createSlice({
   name: 'experiment',
   initialState: {
@@ -93,70 +96,63 @@ const experimentSlice = createSlice({
     breakDuration: null,
     config: {
       breakDuration: null
+    },
+    breakState: {
+      isBreak: false,
+      breakType: null,
+      duration: null,
+      startTime: null
     }
   },
   reducers: {
     updateTrialState: (state, action) => {
-      if (action.payload.phase === 'BLOCK_COMPLETE') {
-        state.phase = 'BLOCK_COMPLETE';
-        state.breakDuration = state.config.breakDuration;
-        return;
-      }
-
       console.log('updateTrialState received:', action.payload);
       
-      if (action.payload.phase === 'capture') {
-        console.log('Capture phase detected, returning to running');
-        state.trialState.phase = 'running';
-        return;
-      }
-
-      if (action.payload.experimentId) {
-        state.experimentId = action.payload.experimentId;
-        state.trialState.currentDigit = action.payload.currentDigit;
-        state.trialState.trialNumber = action.payload.trialNumber - 1;
-      }
-
-      if (action.payload.phase === 'trial-start') {
-        if (action.payload.responseProcessed) {
-          console.log('Processing trial progression', {
-            currentTrial: state.trialState.trialNumber,
-            currentIndex: state.trialState.digitIndex
-          });
-          const currentTrial = state.trials[state.trialState.trialNumber];
+      if (action.payload.phase === 'AWAIT_RESPONSE' && action.payload.responseProcessed) {
+        const currentTrial = state.trials[state.trialState.trialNumber];
+        if (currentTrial) {
+          const nextDigitIndex = state.trialState.digitIndex + 1;
           
-          if (currentTrial) {
-            const nextDigitIndex = state.trialState.digitIndex + 1;
-            const SEQUENCE_LENGTH = 15;
-            
-            // Handle digit progression first
-            if (nextDigitIndex >= SEQUENCE_LENGTH) {
-              // If this is the last trial, ensure we process the final response
-              if (state.trialState.trialNumber === state.trials.length - 1) {
-                state.trialState.phase = 'complete';
-                state.isComplete = true;
-                return;
-              }
-              // Otherwise move to next trial
-              state.trialState.trialNumber += 1;
-              state.trialState.digitIndex = 0;
-              state.trialState.currentDigit = state.trials[state.trialState.trialNumber]?.number[0];
-            } else {
-              state.trialState.digitIndex = nextDigitIndex;
-              state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
-            }
+          // First: Check if we're at trial end (digitIndex 14)
+          if (nextDigitIndex > 14) {
+            state.phase = 'TRIAL_BREAK';
+            state.breakState = {
+              type: 'TRIAL_BREAK',
+              startTime: Date.now(),
+              duration: 15000,
+              isBreak: true
+            };
+            // Prepare for next trial
+            state.trialState.trialNumber += 1;
+            state.trialState.digitIndex = 0;
+          } else {
+            // Normal digit progression
+            state.phase = 'DIGIT_BREAK';
+            state.breakState = {
+              type: 'DIGIT_BREAK',
+              startTime: Date.now(),
+              duration: 500,
+              isBreak: true
+            };
+            state.trialState.digitIndex = nextDigitIndex;
+            state.trialState.currentDigit = currentTrial.number[nextDigitIndex];
           }
         }
-
-        const currentTrial = state.trials[state.trialState.currentTrial];
-        if (currentTrial?.blockNumber !== state.currentBlock) {
-          // Block transition detected
-          state.phase = 'BLOCK_COMPLETE';
-          state.breakDuration = state.config.breakDuration;
-        }
-      }      
+      }
+      
+      if (action.payload.phase === 'PRESENTING_DIGIT') {
+        state.phase = 'PRESENTING_DIGIT';
+        state.breakState = {
+          isBreak: false,
+          breakType: null,
+          duration: null,
+          startTime: null
+        };
+      }
+      
       state.trialState.phase = action.payload.phase;
-    },    queueResponse: (state, action) => {
+    },
+    queueResponse: (state, action) => {
       const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
       if (!state.responses.byPosition[positionKey]) {
         state.responses.byPosition[positionKey] = action.payload;
@@ -175,15 +171,45 @@ const experimentSlice = createSlice({
 
     setComplete: (state, action) => {
       state.isComplete = action.payload;
+    },
+    
+    startBreak: (state, action) => {
+      state.breakState = {
+        isBreak: true,
+        breakType: action.payload.type,
+        duration: action.payload.duration,
+        startTime: Date.now()
+      };
+      state.phase = action.payload.type;
+    },
+
+    endBreak: (state) => {
+      state.breakState = {
+        isBreak: false,
+        breakType: null,
+        duration: null,
+        startTime: null
+      };
+      state.phase = 'running';
+    },
+
+    updateBreakProgress: (state, action) => {
+      if (state.breakState.isBreak) {
+        state.breakState.remainingTime = 
+          state.breakState.duration - (Date.now() - state.breakState.startTime);
+      }
     }
   }
 });
+
 export const {
   updateTrialState,
   queueResponse,
   completeResponseProcessing,
   setTrials,
-  setComplete
+  setComplete,
+  startBreak,
+  endBreak,
+  updateBreakProgress
 } = experimentSlice.actions;
-
 export default experimentSlice.reducer;

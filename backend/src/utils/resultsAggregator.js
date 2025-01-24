@@ -22,11 +22,21 @@ class ResultsAggregator {
     const { startTime, state } = session;
     const endTime = Date.now();
     
+    // Calculate score metrics
+    const responses = state.responses || [];
+    const correctResponses = responses.filter(r => this.validateResponse(r.digit, r.key));
+    
     return {
       totalTime: endTime - startTime,
       trialsCompleted: state.currentTrial,
       totalTrials: state.trials.length,
       responseCount: state.responses.length,
+      score: {
+        correct: correctResponses.length,
+        total: responses.length,
+        percentage: responses.length ? (correctResponses.length / responses.length) * 100 : 0
+      },
+      presentationTimes: this.calculatePresentationTimes(state),
       lastActivity: session.lastActivity,
       status: state.status
     };
@@ -43,11 +53,19 @@ class ResultsAggregator {
         response: responseState[index]?.key || null,
         isCorrect: this.validateResponse(digit, responseState[index]?.key),
         timestamp: responseState[index]?.timestamp || null,
+        presentationTime: responseState[index]?.presentationTime || null,
         position: pos + 1
       })),
       effortLevel: trial.effortLevel,
-      totalCorrect: responseState[index]?.filter(r => r.isCorrect).length || 0
+      totalCorrect: responseState[index]?.filter(r => r.isCorrect).length || 0,
+      averagePresentationTime: this.calculateAveragePresentationTime(responseState[index])
     }));
+  }
+
+  calculateAveragePresentationTime(responses) {
+    if (!responses?.length) return null;
+    const times = responses.map(r => r.presentationTime).filter(Boolean);
+    return times.length ? times.reduce((a, b) => a + b, 0) / times.length : null;
   }
 
   validateResponse(digit, key) {

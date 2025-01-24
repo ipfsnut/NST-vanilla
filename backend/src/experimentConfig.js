@@ -25,8 +25,35 @@ module.exports = {
     ]
   },
   
-  // Break duration in milliseconds
-  breakDuration: 30000,
+  // New break timing configurations
+  breaks: {
+    digitBreak: {
+      duration: 500,    // 0.5s between digits
+      enabled: true
+    },
+    trialBreak: {
+      defaultDuration: 15000,  // 15s between regular trials
+      longDuration: 30000,    // 30s after trials 3 and 6
+      triggerLongBreakAfterTrials: [3, 6],  // Configurable trial numbers
+      enabled: true
+    }
+  },
+
+  // New scoring configurations
+  scoring: {
+    correctResponse: 1,
+    incorrectResponse: 0,
+    minimumResponseTime: 200  // ms
+  },
+
+  // Existing timing configurations
+  timing: {
+    digitPresentation: {
+      min: 500,    // minimum time to show digit
+      max: 2000    // maximum time to show digit
+    },
+    responseWindow: 3000  // time allowed for response
+  },
   
   captureConfig: {
     firstCapture: 1,

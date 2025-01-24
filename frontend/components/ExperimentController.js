@@ -135,7 +135,6 @@ const ExperimentController = () => {
       handleBlockComplete(config.breakDuration);
     }
   }, [trialState.phase]);
-
   return (
     <div className="experiment-wrapper">
       {showBreakScreen ? (
@@ -146,14 +145,14 @@ const ExperimentController = () => {
             <CameraCapture
               experimentId={experimentId}
               shouldCapture={
-                trialState.phase === 'running' &&
+                phase === 'PRESENTING_DIGIT' &&
                 !responses.captureState?.isProcessing &&
                 shouldTriggerCapture(trialState.digitIndex)
               }
             />
           )}
-          {trialState.phase === 'start' && <StartScreen />}
-          {(trialState.phase === 'running' || trialState.phase === 'awaiting-response') && !isComplete && (
+          {phase === 'start' && <StartScreen />}
+          {(['PRESENTING_DIGIT', 'AWAIT_RESPONSE'].includes(phase)) && !isComplete && (
             <>
               <DigitDisplay />
               {experimentId && trials.length > 0 && (
@@ -165,13 +164,13 @@ const ExperimentController = () => {
               )}
             </>
           )}
-          {trialState.phase === 'complete' && (
+          {phase === 'COMPLETE' && (
             <ResultsView
               experimentId={experimentId}
               onExportComplete={() => dispatch(setComplete(true))}
             />
           )}
-          {trialState.phase === 'error' && (
+          {phase === 'error' && (
             <div className="error-message">
               An error occurred. Please restart the experiment.
             </div>
