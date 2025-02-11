@@ -21,3 +21,18 @@ body {
   0% { transform: translateY(-100%); }
   100% { transform: translateY(100vh); }
 }
+
+.digit-display {
+  position: fixed;
+  top: 30vh;  /* This moves it higher up */
+  left: 50%;
+  transform: translate(-50%, -50%);
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.digit {
+  font-size: 8rem;
+  font-weight: bold;
+}
