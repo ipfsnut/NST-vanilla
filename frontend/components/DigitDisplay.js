@@ -1,16 +1,16 @@
 import React, { memo } from 'react';
 import { useSelector } from 'react-redux';
 
-const DigitDisplay = ({ digit }) => {
-  const { phase } = useSelector(state => state.experiment);
-  
-  // Only show digit during PRESENTING_DIGIT phase
-  const shouldShowDigit = phase === 'PRESENTING_DIGIT';
+const DigitDisplay = () => {
+  const trialState = useSelector(state => state.experiment.trialState);
+  console.log('DigitDisplay rendering:', trialState);
+
+  const shouldShowDigit = trialState.phase === 'PRESENTING_DIGIT';
   
   return (
     <div className="digit-display">
       {shouldShowDigit && (
-        <span className="digit">{digit}</span>
+        <span className="digit">{trialState.currentDigit}</span>
       )}
     </div>
   );

@@ -7,24 +7,14 @@ const StartScreen = () => {
   const dispatch = useDispatch();
   const deviceStatus = useSelector(state => state.capture.deviceStatus);
 
-  useEffect(() => {
-    checkCameraAvailability(dispatch);
-  }, [dispatch]);
+  const handleStart = () => {
+    dispatch(updateTrialState({ phase: 'initializing' }));
+  };
 
-  const handleStart = async () => {
-    console.log('Initializing experiment');
-    const response = await initializeExperiment();
-    
-    // Set trials first
-    dispatch(setTrials(response.trials));
-    
-    // Update trial state to match our new state model
-    dispatch(updateTrialState({
-      phase: 'PRESENTING_DIGIT',
-      experimentId: response.experimentId,
-      currentDigit: response.trialState.currentDigit,
-      trialNumber: response.trialState.trialNumber
-    }));
+  const handleKeyPress = (event) => {
+    if (event.key === 'f' || event.key === 'j') {
+      handleStart();
+    }
   };
 
   useEffect(() => {

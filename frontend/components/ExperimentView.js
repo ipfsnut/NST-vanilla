@@ -7,15 +7,24 @@ import {
   updateTrialState 
 } from '../redux/experimentSlice';
 import DigitDisplay from './DigitDisplay';
+import ResponseHandler from './ResponseHandler';
 import { DigitBreakScreen } from './DigitBreakScreen';
 import { TrialBreakScreen } from './TrialBreakScreen';
 import { API_CONFIG } from '../config/api';
 
+
 const ExperimentView = () => {
+  const dispatch = useDispatch();
   const { phase, experimentId, breakState } = useSelector(state => state.experiment);
   const { isCapturing } = useSelector(state => state.capture);
   const [showDigit, setShowDigit] = useState(true);
-  const dispatch = useDispatch();
+
+  const handleResponseError = (error) => {
+    dispatch(updateTrialState({ 
+      phase: 'error',
+      error: error.message 
+    }));
+  };
 
   const handleBreakPeriod = async (breakDuration, breakType) => {
     setShowDigit(false);
@@ -56,20 +65,33 @@ const ExperimentView = () => {
     }
   }, [phase]);
 
+  const TaskInstructions = () => (
+    <div className="task-instructions">
+      <p>Press 'f' for odd numbers</p>
+      <p>Press 'j' for even numbers</p>
+    </div>
+  );
+
   const renderContent = () => {
     if (!showDigit || breakState.isBreak) {
-      return breakState.breakType === 'TRIAL_BREAK' ? 
+      return breakState.breakType === 'TRIAL_BREAK' ?
         <TrialBreakScreen remainingTime={breakState.remainingTime} /> :
         <DigitBreakScreen />;
     }
-
+  
     return (
       <>
+        <TaskInstructions />
         <DigitDisplay />
+        <ResponseHandler 
+          experimentId={experimentId}
+          onError={handleResponseError}
+        />
         {isCapturing && <div className="capture-indicator">Recording...</div>}
       </>
     );
   };
+  
 
   return (
     <div className={`experiment-container ${isCapturing ? 'capture-active' : ''}`}>
@@ -79,3 +101,4 @@ const ExperimentView = () => {
 };
 
 export default ExperimentView;
+

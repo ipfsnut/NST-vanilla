@@ -108,6 +108,19 @@ const experimentSlice = createSlice({
     updateTrialState: (state, action) => {
       console.log('updateTrialState received:', action.payload);
       
+      // Handle experimentId at root level
+      if (action.payload.experimentId) {
+        state.experimentId = action.payload.experimentId;
+      }
+      
+      // Update all trialState properties that are present in payload
+      Object.keys(action.payload).forEach(key => {
+        if (key !== 'experimentId') {
+          state.trialState[key] = action.payload[key];
+        }
+      });
+
+      // Existing special case handling
       if (action.payload.phase === 'AWAIT_RESPONSE' && action.payload.responseProcessed) {
         const currentTrial = state.trials[state.trialState.trialNumber];
         if (currentTrial) {
@@ -149,10 +162,7 @@ const experimentSlice = createSlice({
           startTime: null
         };
       }
-      
-      state.trialState.phase = action.payload.phase;
-    },
-    queueResponse: (state, action) => {
+    },    queueResponse: (state, action) => {
       const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
       if (!state.responses.byPosition[positionKey]) {
         state.responses.byPosition[positionKey] = action.payload;

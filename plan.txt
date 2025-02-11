@@ -1,0 +1,81 @@
+NST Application Refactoring Plan
+
+1. State Management Requirements
+
+Core States:
+✓ Create PHASES enum with all core states
+✓ Document state purposes
+✓ Implement VALID_TRANSITIONS map
+- Implement state transition validation
+- Add break timing controls
+- Create error recovery mechanisms
+
+State Transition Rules:
+- INIT → PRESENTING_DIGIT
+- PRESENTING_DIGIT → AWAIT_RESPONSE
+- AWAIT_RESPONSE → DIGIT_BREAK | TRIAL_BREAK
+- DIGIT_BREAK → PRESENTING_DIGIT
+- TRIAL_BREAK → PRESENTING_DIGIT
+- Any State → ERROR (on failure)
+- ERROR → PRESENTING_DIGIT (on recovery)
+
+Break Timing Requirements:
+- Digit Break: Exactly 0.5s dark screen
+- Trial Break: Exactly 15s with countdown
+- State transitions must be precise
+- Breaks cannot be interrupted
+- Timer drift must be prevented
+
+Error Recovery:
+- Track last valid state
+- Store recovery checkpoint data
+- Implement state restoration
+- Validate state after recovery
+2. Response Processing Architecture
+
+Queue Implementation:
+- Batch responses in memory
+- Process in configurable intervals
+- Maintain order preservation
+- Handle queue overflow
+
+Response Validation:
+- Verify response timing
+- Validate response format
+- Check sequence integrity
+- Ensure trial/digit alignment
+
+Error Handling:
+- Retry failed submissions
+- Log detailed error context
+- Preserve queue
+
+3. Integration Points
+
+State Synchronization:
+- Frontend dispatches state transition requests
+- Backend validates transition legitimacy
+- Both layers maintain independent state machines
+- Periodic state verification checks
+- Conflict resolution protocol
+
+API Contract:
+- POST /api/state/transition
+  - Payload: {currentState, targetState, metadata}
+  - Response: {newState, timestamp, validationData}
+- POST /api/response/batch
+  - Payload: {responses[], experimentId, batchMetadata}
+  - Response: {processed, errors, nextState}
+
+Break Coordination:
+- Backend controls break timing
+- Frontend renders break UI
+- Synchronized countdown mechanism
+- Break completion verification
+- Transition guards prevent early exits
+
+Capture Requirements:
+- Capture during specific state transitions
+- Backend validates capture timing
+- Frontend queues captures with responses
+- Synchronized cleanup after processing
