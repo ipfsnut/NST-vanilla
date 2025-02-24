@@ -1,33 +1,8 @@
 import { createSlice } from '@reduxjs/toolkit';
 import { API_CONFIG } from '../config/api';
 
-export const responseQueueMiddleware = store => next => action => {
-  console.log('Middleware received action:', action.type);
-  const result = next(action);
-  
-  if (action.type === 'experiment/queueResponse') {
-    const state = store.getState().experiment;
-    console.log('Middleware processing response:', {
-      digit: action.payload.digit,
-      trialNumber: action.payload.trialNumber,
-      position: action.payload.position
-    });
-    
-    processResponses([action.payload], state.experimentId)
-      .then(() => {
-        console.log('Response processed, updating trial state');
-        store.dispatch(completeResponseProcessing());
-        store.dispatch(updateTrialState({
-          phase: 'trial-start',
-          responseProcessed: true
-        }));
-      })
-      .catch(error => {
-        console.error('Response processing error:', error);
-      });
-  }
-  return result;
-};const processResponses = async (responses, experimentId) => {
+// Process responses function remains the same
+const processResponses = async (responses, experimentId) => {
   try {
     const processedResponses = responses.map(response => ({
       ...response,
@@ -49,10 +24,32 @@ export const responseQueueMiddleware = store => next => action => {
   }
 };
 
+export const responseQueueMiddleware = store => next => action => {
+  const result = next(action);
+  
+  if (action.type === 'experiment/queueResponse') {
+    const state = store.getState().experiment;
+    
+    processResponses([action.payload], state.experimentId)
+      .then(() => {
+        store.dispatch(completeResponseProcessing());
+        store.dispatch(updateTrialState({
+          phase: 'trial-start',
+          responseProcessed: true
+        }));
+      })
+      .catch(error => {
+        console.error('Response processing error:', error);
+      });
+  }
+  return result;
+};
+
 const experimentSlice = createSlice({
   name: 'experiment',
   initialState: {
     experimentId: null,
+    displayBlank: false, // Simple flag to control digit visibility
     trialState: {
       currentDigit: null,
       trialNumber: 0,
@@ -91,6 +88,10 @@ const experimentSlice = createSlice({
     }
   },
   reducers: {
+    setDisplayBlank: (state, action) => {
+      state.displayBlank = action.payload;
+    },
+    
     updateTrialState: (state, action) => {
       console.log('updateTrialState received:', action.payload);
       
@@ -137,6 +138,7 @@ const experimentSlice = createSlice({
       }      
       state.trialState.phase = action.payload.phase;
     },
+    
     queueResponse: (state, action) => {
       const positionKey = `${action.payload.trialNumber}-${action.payload.position}`;
       if (!state.responses.byPosition[positionKey]) {
@@ -165,7 +167,8 @@ export const {
   queueResponse,
   completeResponseProcessing,
   setTrials,
-  setComplete
+  setComplete,
+  setDisplayBlank
 } = experimentSlice.actions;
 
 export default experimentSlice.reducer;

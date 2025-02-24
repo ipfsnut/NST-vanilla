@@ -28,13 +28,18 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  opacity: 1;
-  transition: opacity 0.5s ease-in-out;
+  transition: opacity 0.25s ease-in-out; /* Faster transition for smooth effect */
 }
 
-.digit-display.fade-in {
+/* Visibility classes for digit display */
+.digit-display.visible {
   opacity: 1;
 }
+
+.digit-display.hidden {
+  opacity: 0;
+}
+
 .digit {
   font-size: 72px;
   font-weight: bold;
@@ -42,6 +47,17 @@
 .instruction {
   font-size: 24px;
   margin-top: 20px;
+}
+
+/* Flash effect for capture */
+.capture-flash {
+  animation: flash 0.2s ease-in-out;
+}
+
+@keyframes flash {
+  0% { background-color: transparent; }
+  50% { background-color: rgba(0, 255, 0, 0.2); }
+  100% { background-color: transparent; }
 }
 
 .matrix-button {
