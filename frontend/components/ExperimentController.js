@@ -3,7 +3,8 @@ import { useDispatch, useSelector } from 'react-redux';
 import { 
   updateTrialState,
   setTrials,
-  setComplete 
+  setComplete,
+  setCaptureConfig  // Import the new action
 } from '../redux/experimentSlice';
 import { API_CONFIG } from '../config/api';
 
@@ -12,6 +13,7 @@ import DigitDisplay from './DigitDisplay';
 import ResponseHandler from './ResponseHandler';
 import CameraCapture from './CameraCapture';
 import ResultsView from './ResultsView';
+
 const ExperimentController = () => {
   const dispatch = useDispatch();
   const {
@@ -23,15 +25,24 @@ const ExperimentController = () => {
     captureConfig
   } = useSelector(state => state.experiment);
 
-  // Move the function here, before using it in JSX
   const shouldTriggerCapture = (digitIndex) => {
-    if (!captureConfig?.enabled) return false;
-    const { firstCapture, interval } = captureConfig;
+    // Only consider it disabled if explicitly set to false
+    if (captureConfig?.enabled === false) {
+      console.log('  Capture explicitly disabled');
+      return false;
+    }
     
+    const { firstCapture, interval } = captureConfig;
     const adjustedIndex = digitIndex + 1;
     
-    return adjustedIndex === firstCapture || 
-      (adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0);
+    const condition1 = adjustedIndex === firstCapture;
+    const condition2 = adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0;
+    
+    console.log('  First condition (index === firstCapture):', condition1);
+    console.log('  Second condition (modulo check):', condition2);
+    console.log('  Should capture:', condition1 || condition2);
+    
+    return condition1 || condition2;
   };
 
   // Add error handler
@@ -57,17 +68,22 @@ const ExperimentController = () => {
   }, [trialState, experimentId]);
 
   useEffect(() => {
-    if (trialState.phase === 'running' && 
-        shouldTriggerCapture(trialState.digitIndex)) {
-      const handleCaptureTrigger = () => {
-        console.log('Triggering capture at digit:', trialState.digitIndex + 1);
-        // Just dispatch the capture event - middleware will handle the queue
+    // Add explicit logging to see if this effect is running
+    console.log('CAPTURE TRIGGER CHECK:');
+    console.log('  Phase:', trialState.phase);
+    console.log('  DigitIndex:', trialState.digitIndex);
+    
+    if (trialState.phase === 'running') {
+      const shouldCapture = shouldTriggerCapture(trialState.digitIndex);
+      console.log('  Final capture decision:', shouldCapture);
+      
+      if (shouldCapture) {
+        console.log('  *** TRIGGERING CAPTURE ***');
         dispatch(updateTrialState({
           phase: 'capture',
           captureSync: true
         }));
-      };
-      handleCaptureTrigger();
+      }
     }
   }, [trialState.phase, trialState.digitIndex, captureConfig, dispatch]);
 
@@ -82,6 +98,14 @@ const ExperimentController = () => {
           });
           
           const experimentData = await response.json();
+          console.log('Session data received:', experimentData);
+          
+          // Update the capture config with server values
+          if (experimentData.captureConfig) {
+            console.log('Server provided captureConfig:', experimentData.captureConfig);
+            dispatch(setCaptureConfig(experimentData.captureConfig));
+          }
+          
           dispatch(setTrials(experimentData.trials));
           dispatch(updateTrialState({
             experimentId: experimentData.experimentId,

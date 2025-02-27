@@ -25,6 +25,9 @@ npm-debug.log*
 *.swp
 *.swo
 
+# Uploads
+.uploads
+/uploads
 # OS generated files
 .DS_Store
 .DS_Store?

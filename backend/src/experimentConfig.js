@@ -1,18 +1,19 @@
 module.exports = {
   // CONFIGURATION
-  // turn shuffle off or on via boolean here
-  shuffleTrials: false,
+  // turn shuffle off or on vi
+  // a boolean here
+  shuffleTrials: true,
   // set number of trials per level here, 
   // the experiment will respect the ordering 
   // you use if shuffle is set to false
   trialConfig: [
-    { level: 7, trials: 1 },
-    { level: 4, trials: 1 },
-    { level: 1, trials: 1 },
+    { level: 6, trials: 5 },
+    { level: 4, trials: 5 },
+    { level: 2, trials: 5 },
   ],
   captureConfig: {
     firstCapture: 1,    // Capture after X responses
-    interval: 7,        // Capture every Y responses after that
+    interval: 3,        // Capture every Y responses after that
     quality: 'high'
   },
   KEYS: {

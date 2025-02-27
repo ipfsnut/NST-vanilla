@@ -158,6 +158,12 @@ const experimentSlice = createSlice({
 
     setComplete: (state, action) => {
       state.isComplete = action.payload;
+    },
+    
+    // New action to update captureConfig
+    setCaptureConfig: (state, action) => {
+      console.log('Setting captureConfig:', action.payload);
+      state.captureConfig = action.payload;
     }
   }
 });
@@ -168,7 +174,8 @@ export const {
   completeResponseProcessing,
   setTrials,
   setComplete,
-  setDisplayBlank
+  setDisplayBlank,
+  setCaptureConfig  // Export the new action
 } = experimentSlice.actions;
 
 export default experimentSlice.reducer;

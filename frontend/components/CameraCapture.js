@@ -66,6 +66,11 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
 
   // Update capture effect
   useEffect(() => {
+    console.log('CAMERA CAPTURE CHECK:');
+    console.log('  shouldCapture prop:', shouldCapture);
+    console.log('  streamRef.current exists:', !!streamRef.current);
+    console.log('  processingRef.current:', processingRef.current);
+    
     if (shouldCapture && streamRef.current && !processingRef.current) {
       processingRef.current = true;
       const canvas = canvasRef.current;

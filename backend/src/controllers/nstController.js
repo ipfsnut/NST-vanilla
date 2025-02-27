@@ -63,6 +63,8 @@ const startSession = async (req, res) => {
       trialNumber: initialState.trialState.trialNumber
     });
 
+    console.log('CAPTURE CONFIG DEBUG - Sending to frontend:', JSON.stringify(config.experimentConfig.captureConfig));
+
     res.json(initialState);
   } catch (error) {
     console.error('Start session error:', error);
@@ -363,12 +365,21 @@ const exportSessionData = async (req, res) => {
         .filter(r => r.trialNumber === trialIndex)
         .sort((a, b) => a.position - b.position);
       
+      // Add effortLevel to each response
+      const enhancedResponses = trialResponses.map(response => ({
+        ...response,
+        effortLevel: trial.effortLevel // Include the effort level from the trial
+      }));
+      
       return {
         trialNumber: trialIndex + 1,
         sequence: trial.number,
-        responses: trialResponses
+        effortLevel: trial.effortLevel, // Include effort level at trial level
+        responses: enhancedResponses
       };
     });
+
+    console.log(`Exporting data with effort levels: ${JSON.stringify(trialData[0]?.effortLevel)}`);
 
     const csvData = convertToCSV(trialData);
     const jsonData = JSON.stringify(trialData, null, 2);
@@ -510,12 +521,14 @@ const exportResults = async (req, res) => {
       trials: session.state.trials.map((trial, index) => ({
         trialNumber: index + 1,
         sequence: trial.number,
+        effortLevel: trial.effortLevel, // Include effort level here
         responses: session.state.responses.filter(r => r.trialNumber === index + 1).map(response => ({
           digit: response.digit,
           keyPressed: response.key,
           isCorrect: response.isCorrect,
           timestamp: response.timestamp,
-          responseTime: response.timing
+          responseTime: response.timing,
+          effortLevel: trial.effortLevel // Add effort level to each response
         }))
       }))
     });
@@ -528,6 +541,7 @@ const exportResults = async (req, res) => {
     res.status(500).json({ error: error.message });
   }
 };
+
 module.exports = {
   startSession,
   getExperimentState,

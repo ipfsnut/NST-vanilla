@@ -28,6 +28,7 @@ const formatJSON = (results) => {
 const convertToCSV = (trialData) => {
   const headers = [
     'trialNumber',
+    'effortLevel',
     'position',
     'digit',
     'response',
@@ -39,6 +40,7 @@ const convertToCSV = (trialData) => {
   const rows = trialData.flatMap(trial => 
     trial.responses.map(response => ({
       trialNumber: trial.trialNumber,
+      effortLevel: trial.effortLevel,
       position: response.position,
       digit: response.digit,
       response: response.response === 'f' ? 'odd' : 'even',
