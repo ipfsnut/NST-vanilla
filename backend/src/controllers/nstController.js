@@ -254,27 +254,42 @@ const CAPTURE_SETTINGS = {
  */
 const submitCapture = async (req, res) => {
   try {
-    const { experimentId, captureData, timestamp, trialNumber, digitIndex, effortLevel } = req.body;
+    const { experimentId, captureData, timestamp, trialNumber, digitIndex } = req.body;
     
     console.log('Capture request received:', {
       experimentId,
       timestamp,
+      trialNumber,
+      digitIndex,
       dataSize: captureData?.length
     });
 
-        // Get the effort level from the current trial
-        const session = await stateManager.getSessionState(experimentId);
-        const currentTrial = session.state.trials[session.state.currentTrial];
-        const currentEffortLevel = effortLevel || currentTrial.effortLevel;
+    // Get the session state
+    const session = await stateManager.getSessionState(experimentId);
+    
+    // Use the trialNumber from the request to get the right trial object
+    // This ensures we're getting the correct trial's effort level
+    const requestedTrialIndex = parseInt(trialNumber); 
+    const trialObj = session.state.trials[requestedTrialIndex];
+    
+    console.log('Trial lookup for capture:', {
+      requestedTrialIndex,
+      currentSessionTrialIndex: session.state.currentTrial,
+      trialObjExists: !!trialObj,
+      effortLevel: trialObj?.effortLevel
+    });
+    
+    // Get the effort level from the specific trial, not just the "currentTrial"
+    const effortLevel = trialObj?.effortLevel || 0;
 
     const fileResult = await mediaHandler.saveTrialCapture(
       experimentId,
       captureData,
       {
         timestamp,
-        trialNumber,
+        trialNumber: requestedTrialIndex,
         digitIndex,
-        effortLevel: currentEffortLevel, 
+        effortLevel: effortLevel,
         width: CAPTURE_SETTINGS.width,
         height: CAPTURE_SETTINGS.height,
         quality: CAPTURE_SETTINGS.quality,
@@ -290,7 +305,8 @@ const submitCapture = async (req, res) => {
     const captureRecord = await stateManager.addCapture(experimentId, {
       ...fileResult,
       timestamp,
-      settings: CAPTURE_SETTINGS
+      settings: CAPTURE_SETTINGS,
+      effortLevel: effortLevel  // Add effort level explicitly to record
     });
 
     console.log('Capture record created:', captureRecord);
@@ -298,7 +314,10 @@ const submitCapture = async (req, res) => {
     res.json({
       success: true,
       filepath: fileResult.filepath,
-      metadata: fileResult.metadata
+      metadata: {
+        ...fileResult.metadata,
+        effortLevel: effortLevel  // Make sure effort level is in response metadata
+      }
     });
   } catch (error) {
     console.error('Capture error details:', {
