@@ -7,12 +7,12 @@ module.exports = {
   // the experiment will respect the ordering 
   // you use if shuffle is set to false
   trialConfig: [
-    { level: 6, trials: 5 },
-    { level: 4, trials: 5 },
-    { level: 2, trials: 5 },
+    { level: 6, trials: 1 },
+    { level: 4, trials: 1 },
+    { level: 2, trials: 1 },
   ],
   captureConfig: {
-    firstCapture: 1,    // Capture after X responses
+    firstCapture: 0,    // Capture after X responses
     interval: 3,        // Capture every Y responses after that
     quality: 'high'
   },

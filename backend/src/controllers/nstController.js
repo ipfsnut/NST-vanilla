@@ -254,13 +254,18 @@ const CAPTURE_SETTINGS = {
  */
 const submitCapture = async (req, res) => {
   try {
-    const { experimentId, captureData, timestamp, trialNumber, digitIndex, settings } = req.body;
+    const { experimentId, captureData, timestamp, trialNumber, digitIndex, effortLevel } = req.body;
     
     console.log('Capture request received:', {
       experimentId,
       timestamp,
       dataSize: captureData?.length
     });
+
+        // Get the effort level from the current trial
+        const session = await stateManager.getSessionState(experimentId);
+        const currentTrial = session.state.trials[session.state.currentTrial];
+        const currentEffortLevel = effortLevel || currentTrial.effortLevel;
 
     const fileResult = await mediaHandler.saveTrialCapture(
       experimentId,
@@ -269,6 +274,7 @@ const submitCapture = async (req, res) => {
         timestamp,
         trialNumber,
         digitIndex,
+        effortLevel: currentEffortLevel, 
         width: CAPTURE_SETTINGS.width,
         height: CAPTURE_SETTINGS.height,
         quality: CAPTURE_SETTINGS.quality,
