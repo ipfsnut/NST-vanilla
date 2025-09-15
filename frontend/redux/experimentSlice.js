@@ -108,10 +108,6 @@ const experimentSlice = createSlice({
       }
 
       if (action.payload.phase === 'trial-start' && action.payload.responseProcessed) {
-        console.log('Processing trial progression', {
-          currentTrial: state.trialState.trialNumber,
-          currentIndex: state.trialState.digitIndex
-        });
         const currentTrial = state.trials[state.trialState.trialNumber];
         
         if (currentTrial) {
@@ -162,7 +158,6 @@ const experimentSlice = createSlice({
     
     // New action to update captureConfig
     setCaptureConfig: (state, action) => {
-      console.log('Setting captureConfig:', action.payload);
       state.captureConfig = action.payload;
     },
     

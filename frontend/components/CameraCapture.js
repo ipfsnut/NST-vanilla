@@ -88,10 +88,6 @@ const CameraCapture = ({ experimentId, shouldCapture, selectedCameraId = null })
 
   // Update capture effect
   useEffect(() => {
-    console.log('CAMERA CAPTURE CHECK:');
-    console.log('  shouldCapture prop:', shouldCapture);
-    console.log('  streamRef.current exists:', !!streamRef.current);
-    console.log('  processingRef.current:', processingRef.current);
     
     if (shouldCapture && streamRef.current && !processingRef.current) {
       processingRef.current = true;
@@ -119,7 +115,7 @@ const CameraCapture = ({ experimentId, shouldCapture, selectedCameraId = null })
           digitIndex
         })
       })
-      .then(() => console.log('Capture completed'))
+      .then(() => {})
       .finally(() => {
         processingRef.current = false;
       });

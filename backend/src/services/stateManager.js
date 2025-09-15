@@ -121,11 +121,6 @@ class StateManager {
       session.state.responses.push(responseData);
     }
 
-    console.log('Response recorded:', {
-      sessionId,
-      positionKey,
-      totalResponses: session.state.responses.length
-    });
 
     return session.state;
   }
@@ -151,12 +146,6 @@ class StateManager {
     
     captures.push(newCapture);
     this.captures.set(sessionId, captures);
-    
-    console.log('Capture stored:', {
-      sessionId,
-      captureCount: captures.length,
-      latestCapture: newCapture
-    });
 
     return newCapture;
   }

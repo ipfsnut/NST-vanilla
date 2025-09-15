@@ -24,7 +24,6 @@ const createAndDownloadZip = async (data) => {
         const filename = path.basename(capture.filepath);
         capturesFolder.file(filename, imageData);
       } catch (error) {
-        console.log(`Skipping capture ${capture.filepath}: ${error.message}`);
       }
     }
   }
@@ -33,7 +32,6 @@ const createAndDownloadZip = async (data) => {
   const content = await zip.generateAsync({ type: 'nodebuffer' });
   await fs.writeFile(zipFileName, content);
 
-  console.log('Archive created:', zipFileName, `(${content.length} bytes)`);
   return zipFileName;
 };
 

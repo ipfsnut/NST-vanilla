@@ -13,8 +13,6 @@ const ResponseHandler = ({ experimentId }) => {
     // Only respond to f and j keys in running phase
     if ((event.key !== 'f' && event.key !== 'j') || phase !== 'running') return;
     
-    console.log('Response received for digit:', currentDigit);
-    
     // 1. Immediately blank the display
     dispatch(setDisplayBlank(true));
     

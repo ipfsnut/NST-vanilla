@@ -26,7 +26,6 @@ const apiMiddleware = store => next => async action => {
     });
     
     const data = await response.json();
-    console.log(`API ${method} ${endpoint}:`, data);
     
     // Validate state consistency
     if (data.stateVector && state.experiment.stateVector) {

@@ -55,21 +55,17 @@ const generateMarkovNumber = (effortLevel, config) => {
  * @returns {array} Array of trial numbers with their effort levels
  */
 const generateTrialNumbers = (config) => {
-  console.log('Generating trial numbers with config:', JSON.stringify(config, null, 2));
 
   const trialNumbers = config.trialConfig.flatMap(({ level, trials }) => {
-    console.log(`Generating ${trials} trials at effort level ${level}`);
     
     return Array(trials).fill().map(() => generateMarkovNumber(level, config));
   });
 
   for (let i = 0; i < config.numTrials; i++) {
     const level = effortLevels[i % effortLevels.length];
-    console.log(`Generating trial ${i + 1} with effort level ${level}`);
     trialNumbers.push(generateMarkovNumber(level, config));
   }
 
-  console.log(`Generated ${trialNumbers.length} trials before shuffling`);
 
   // Fisher-Yates shuffle
   for (let i = trialNumbers.length - 1; i > 0; i--) {
@@ -77,7 +73,6 @@ const generateTrialNumbers = (config) => {
     [trialNumbers[i], trialNumbers[j]] = [trialNumbers[j], trialNumbers[i]];
   }
 
-  console.log(`Final trial count after shuffling: ${trialNumbers.length}`);
   return trialNumbers;
 };
 module.exports = { 

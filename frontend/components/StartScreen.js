@@ -1,27 +1,18 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateTrialState, setSelectedCamera } from '../redux/experimentSlice';
+import { updateTrialState } from '../redux/experimentSlice';
 import { checkCameraAvailability } from './CameraCapture';
-import CameraSelector from './CameraSelector';
 
 const StartScreen = () => {
   const dispatch = useDispatch();
   const deviceStatus = useSelector(state => state.capture.deviceStatus);
-  const [selectedCameraId, setSelectedCameraId] = useState(null);
-  
-  const handleCameraSelect = (cameraId) => {
-    setSelectedCameraId(cameraId);
-    dispatch(setSelectedCamera(cameraId));
-  };
 
   useEffect(() => {
     checkCameraAvailability(dispatch);
   }, [dispatch]);
 
   const handleKeyPress = (event) => {
-    console.log('Key pressed:', event.key);
     if (event.key === 'f' || event.key === 'j') {
-      console.log('Dispatching initialization');
       dispatch(updateTrialState({
         phase: 'initializing',
         transitionType: 'user-start'
@@ -42,12 +33,6 @@ const StartScreen = () => {
       {deviceStatus === 'ready' && (
         <div className="camera-status">Camera Ready ✓</div>
       )}
-      
-      <CameraSelector 
-        onCameraSelect={handleCameraSelect}
-        selectedCameraId={selectedCameraId}
-      />
-      
       <div className="start-instruction">
         Press 'f' or 'j' to begin
       </div>

@@ -28,7 +28,6 @@ const ExperimentController = () => {
   const shouldTriggerCapture = (digitIndex) => {
     // Only consider it disabled if explicitly set to false
     if (captureConfig?.enabled === false) {
-      console.log('  Capture explicitly disabled');
       return false;
     }
     
@@ -38,9 +37,6 @@ const ExperimentController = () => {
     const condition1 = adjustedIndex === firstCapture;
     const condition2 = adjustedIndex > firstCapture && (adjustedIndex - firstCapture) % interval === 0;
     
-    console.log('  First condition (index === firstCapture):', condition1);
-    console.log('  Second condition (modulo check):', condition2);
-    console.log('  Should capture:', condition1 || condition2);
     
     return condition1 || condition2;
   };
@@ -63,22 +59,16 @@ const ExperimentController = () => {
         body: JSON.stringify({ targetState: 'COMPLETE' })
       })
       .then(response => response.json())
-      .then(data => console.log('State transition complete:', data));
     }
   }, [trialState, experimentId]);
 
   useEffect(() => {
     // Add explicit logging to see if this effect is running
-    console.log('CAPTURE TRIGGER CHECK:');
-    console.log('  Phase:', trialState.phase);
-    console.log('  DigitIndex:', trialState.digitIndex);
     
     if (trialState.phase === 'running') {
       const shouldCapture = shouldTriggerCapture(trialState.digitIndex);
-      console.log('  Final capture decision:', shouldCapture);
       
       if (shouldCapture) {
-        console.log('  *** TRIGGERING CAPTURE ***');
         dispatch(updateTrialState({
           phase: 'capture',
           captureSync: true

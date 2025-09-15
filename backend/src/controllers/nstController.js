@@ -20,11 +20,6 @@ const startSession = async (req, res) => {
     const experimentId = Date.now().toString();
     const trials = await generateTrialNumbers(config.experimentConfig);
     
-    console.log('Generated trials[0]:', {
-      number: trials[0].number,
-      firstDigit: trials[0].number[0],
-      metadata: trials[0].metadata
-    });
 
     const session = await stateManager.createSession(experimentId, {
       type: 'nst',
@@ -32,10 +27,6 @@ const startSession = async (req, res) => {
       config: config.experimentConfig
     });
     
-    console.log('Session created with initial trial state:', {
-      currentTrial: session.state.currentTrial,
-      currentDigit: session.state.currentDigit
-    });
 
     await stateManager.updateSessionState(experimentId, { status: 'RUNNING' });
     
@@ -58,12 +49,7 @@ const startSession = async (req, res) => {
       captureConfig: config.experimentConfig.captureConfig
     };
 
-    console.log('Sending initial state to frontend:', {
-      currentDigit: initialState.trialState.currentDigit,
-      trialNumber: initialState.trialState.trialNumber
-    });
 
-    console.log('CAPTURE CONFIG DEBUG - Sending to frontend:', JSON.stringify(config.experimentConfig.captureConfig));
 
     res.json(initialState);
   } catch (error) {
@@ -131,12 +117,6 @@ const getTrialState = async (req, res) => {
     const currentTrialIndex = session.state.currentTrial;
     const currentTrial = session.state.trials[currentTrialIndex];
 
-    console.log('Trial state request:', {
-      experimentId,
-      currentTrialIndex,
-      currentDigit: currentTrial?.number[session.state.digitIndex],
-      digitIndex: session.state.digitIndex
-    });
     
     if (currentTrialIndex >= session.state.trials.length) {
       return res.json({
@@ -256,13 +236,6 @@ const submitCapture = async (req, res) => {
   try {
     const { experimentId, captureData, timestamp, trialNumber, digitIndex } = req.body;
     
-    console.log('Capture request received:', {
-      experimentId,
-      timestamp,
-      trialNumber,
-      digitIndex,
-      dataSize: captureData?.length
-    });
 
     // Get the session state
     const session = await stateManager.getSessionState(experimentId);
@@ -272,12 +245,6 @@ const submitCapture = async (req, res) => {
     const requestedTrialIndex = parseInt(trialNumber); 
     const trialObj = session.state.trials[requestedTrialIndex];
     
-    console.log('Trial lookup for capture:', {
-      requestedTrialIndex,
-      currentSessionTrialIndex: session.state.currentTrial,
-      trialObjExists: !!trialObj,
-      effortLevel: trialObj?.effortLevel
-    });
     
     // Get the effort level from the specific trial, not just the "currentTrial"
     const effortLevel = trialObj?.effortLevel || 0;
@@ -297,10 +264,6 @@ const submitCapture = async (req, res) => {
       }
     );
 
-    console.log('File save result:', {
-      filename: fileResult.filename,
-      filepath: fileResult.filepath
-    });
 
     const captureRecord = await stateManager.addCapture(experimentId, {
       ...fileResult,
@@ -309,7 +272,6 @@ const submitCapture = async (req, res) => {
       effortLevel: effortLevel  // Add effort level explicitly to record
     });
 
-    console.log('Capture record created:', captureRecord);
 
     res.json({
       success: true,
@@ -404,7 +366,6 @@ const exportSessionData = async (req, res) => {
       };
     });
 
-    console.log(`Exporting data with effort levels: ${JSON.stringify(trialData[0]?.effortLevel)}`);
 
     const csvData = convertToCSV(trialData);
     const jsonData = JSON.stringify(trialData, null, 2);
