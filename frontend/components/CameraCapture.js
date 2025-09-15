@@ -11,6 +11,16 @@ import {
 } from '../redux/captureSlice';
 import { API_CONFIG } from '../config/api';
 
+export const enumerateCameras = async () => {
+  try {
+    const devices = await navigator.mediaDevices.enumerateDevices();
+    return devices.filter(device => device.kind === 'videoinput');
+  } catch (error) {
+    console.error('Error enumerating cameras:', error);
+    return [];
+  }
+};
+
 export const checkCameraAvailability = async (dispatch) => {
   try {
     const stream = await navigator.mediaDevices.getUserMedia({ video: true });
@@ -29,7 +39,7 @@ const CAPTURE_SETTINGS = {
   imageType: 'image/jpeg',
   quality: 0.8
 };
-const CameraCapture = ({ experimentId, shouldCapture }) => {
+const CameraCapture = ({ experimentId, shouldCapture, selectedCameraId = null }) => {
   const dispatch = useDispatch();
   const videoRef = useRef(null);
   const canvasRef = useRef(null);
@@ -43,12 +53,19 @@ const CameraCapture = ({ experimentId, shouldCapture }) => {
   useEffect(() => {
     const initializeCamera = async () => {
       try {
-        const stream = await navigator.mediaDevices.getUserMedia({ 
+        const constraints = {
           video: {
             width: CAPTURE_SETTINGS.width,
             height: CAPTURE_SETTINGS.height
           }
-        });
+        };
+        
+        // If a specific camera is selected, use its deviceId
+        if (selectedCameraId) {
+          constraints.video.deviceId = { exact: selectedCameraId };
+        }
+        
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
         
         if (videoRef.current) {
           videoRef.current.srcObject = stream;

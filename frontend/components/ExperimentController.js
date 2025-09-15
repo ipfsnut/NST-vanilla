@@ -136,6 +136,7 @@ const ExperimentController = () => {
       {experimentId && (
         <CameraCapture
           experimentId={experimentId}
+          selectedCameraId={captureConfig?.cameraId}
           shouldCapture={
             trialState.phase === 'running' &&
             !responses.captureState?.isProcessing &&

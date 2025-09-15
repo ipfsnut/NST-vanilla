@@ -14,7 +14,8 @@ module.exports = {
   captureConfig: {
     firstCapture: 0,    // Capture after X responses
     interval: 3,        // Capture every Y responses after that
-    quality: 'high'
+    quality: 'high',
+    cameraId: null      // Specific camera device ID (null = use default)
   },
   KEYS: {
     ODD: 'f',
