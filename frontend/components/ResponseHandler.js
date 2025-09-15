@@ -36,8 +36,10 @@ const ResponseHandler = ({ experimentId }) => {
       // Send the response
       dispatch(queueResponse(responseData));
       
-      // 3. Show the next digit after response is queued
-      dispatch(setDisplayBlank(false));
+      // 3. Show the next digit after a small additional delay to ensure state is updated
+      setTimeout(() => {
+        dispatch(setDisplayBlank(false));
+      }, 50);
     }, 500);
   };
 
