@@ -6,7 +6,6 @@ const ResultsView = ({ experimentId, onExportComplete }) => {
   const [results, setResults] = useState(null);
   const [exportStatus, setExportStatus] = useState('idle');
   const [isLoading, setIsLoading] = useState(false);
-  const captures = useSelector(state => state.capture.captures);
 
   useEffect(() => {
     const fetchResults = async () => {
@@ -65,9 +64,22 @@ const ResultsView = ({ experimentId, onExportComplete }) => {
       <h1>Experiment Complete</h1>
       {results && (
         <div className="results-data">
-          <p>Total Trials: {results.metrics?.totalTrials}</p>
-          <p>Total Captures: {captures.length}</p>
-          <p>Capture Times: {captures.map(c => new Date(c.timestamp).toLocaleTimeString()).join(', ')}</p>
+          <p>Total Trials: {results.metrics?.totalTrials || 'Unknown'}</p>
+          <p>Completed Trials: {results.metrics?.completedTrials || 'Unknown'}</p>
+          <p>Total Captures: {results.captures?.length || 0}</p>
+          {results.captures && results.captures.length > 0 && (
+            <div className="capture-details">
+              <p>Capture Times:</p>
+              <ul>
+                {results.captures.map((capture, index) => (
+                  <li key={index}>
+                    {new Date(capture.timestamp).toLocaleTimeString()} 
+                    {capture.trialNumber !== undefined && ` (Trial ${capture.trialNumber})`}
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
         </div>
       )}
       <button 

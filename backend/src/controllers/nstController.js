@@ -473,13 +473,16 @@ const getResults = async (req, res) => {
       return res.status(400).json({ error: 'Session not yet complete' });
     }
 
+    const sessionCaptures = stateManager.getSessionCaptures(experimentId);
+    
     const results = {
       trialData: session.state.trials,
       responses: session.state.responses,
-      captures: session.state.captures || [],
+      captures: sessionCaptures,
       metrics: {
         totalTrials: session.state.trials.length,
         completedTrials: session.state.currentTrial,
+        totalCaptures: sessionCaptures.length,
         startTime: session.startTime,
         endTime: session.lastActivity
       }
