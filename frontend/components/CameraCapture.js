@@ -53,6 +53,11 @@ const CameraCapture = ({ experimentId, shouldCapture, selectedCameraId = null })
   useEffect(() => {
     const initializeCamera = async () => {
       try {
+        // Clean up existing stream if switching cameras
+        if (streamRef.current) {
+          streamRef.current.getTracks().forEach(track => track.stop());
+          streamRef.current = null;
+        }
         const constraints = {
           video: {
             width: CAPTURE_SETTINGS.width,
@@ -79,7 +84,7 @@ const CameraCapture = ({ experimentId, shouldCapture, selectedCameraId = null })
     };
 
     initializeCamera();
-  }, []);
+  }, [selectedCameraId]); // Reinitialize when camera selection changes
 
   // Update capture effect
   useEffect(() => {

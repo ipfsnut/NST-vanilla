@@ -164,6 +164,14 @@ const experimentSlice = createSlice({
     setCaptureConfig: (state, action) => {
       console.log('Setting captureConfig:', action.payload);
       state.captureConfig = action.payload;
+    },
+    
+    // Action to update selected camera
+    setSelectedCamera: (state, action) => {
+      state.captureConfig = {
+        ...state.captureConfig,
+        cameraId: action.payload
+      };
     }
   }
 });
@@ -175,7 +183,8 @@ export const {
   setTrials,
   setComplete,
   setDisplayBlank,
-  setCaptureConfig  // Export the new action
+  setCaptureConfig,  // Export the new action
+  setSelectedCamera  // Export camera selection action
 } = experimentSlice.actions;
 
 export default experimentSlice.reducer;

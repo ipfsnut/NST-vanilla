@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useDispatch, useSelector } from 'react-redux';
-import { updateTrialState } from '../redux/experimentSlice';
+import { updateTrialState, setSelectedCamera } from '../redux/experimentSlice';
 import { checkCameraAvailability } from './CameraCapture';
 import CameraSelector from './CameraSelector';
 
@@ -8,6 +8,11 @@ const StartScreen = () => {
   const dispatch = useDispatch();
   const deviceStatus = useSelector(state => state.capture.deviceStatus);
   const [selectedCameraId, setSelectedCameraId] = useState(null);
+  
+  const handleCameraSelect = (cameraId) => {
+    setSelectedCameraId(cameraId);
+    dispatch(setSelectedCamera(cameraId));
+  };
 
   useEffect(() => {
     checkCameraAvailability(dispatch);
@@ -39,7 +44,7 @@ const StartScreen = () => {
       )}
       
       <CameraSelector 
-        onCameraSelect={setSelectedCameraId}
+        onCameraSelect={handleCameraSelect}
         selectedCameraId={selectedCameraId}
       />
       
