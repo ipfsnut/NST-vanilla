@@ -28,7 +28,7 @@
   align-items: center;
   justify-content: center;
   height: 100vh;
-  transition: opacity 0.25s ease-in-out; /* Faster transition for smooth effect */
+  /* Removed transition to make digit changes instant */
 }
 
 /* Visibility classes for digit display */
